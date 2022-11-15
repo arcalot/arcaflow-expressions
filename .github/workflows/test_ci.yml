@@ -31,12 +31,9 @@ jobs:
         with:
           go-version: 1.18
 
-      # install limgo via GitHub Action
-      - name: Set up limgo - option 2
-        uses: GoTestTools/limgo-action@v1.0.1
-        with:
-          version: "v0.0.3-beta"
-          install-only: true
+      # Install limgo
+      - name: Set up limgo - option 1
+        run: go install github.com/GoTestTools/limgo@latest
 
       # Run tests with coverprofile
       - name: Run tests
