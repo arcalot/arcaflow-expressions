@@ -1,8 +1,6 @@
-// Package expressions is designed to tokenizer and
-// parse jsonpath expressions.
-// The AST module contains representations of the components
-// of the abstract tree representation of use of the grammar.
-package expressions
+// Package ast is designed to tokenizer and parse jsonpath expressions. The AST module contains representations of the
+// components of the abstract tree representation of use of the grammar.
+package ast
 
 import "strconv"
 

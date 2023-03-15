@@ -1,4 +1,4 @@
-package expressions
+package ast
 
 // WalkAST walks the AST in-order.
 func WalkAST(
