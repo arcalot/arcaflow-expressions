@@ -19,7 +19,8 @@ func New(expressionString string) (Expression, error) {
     }
 
     return &expression{
-        ast: exprAst,
+        ast:        exprAst,
+        expression: expressionString,
     }, nil
 }
 
@@ -33,10 +34,17 @@ type Expression interface {
     // Evaluate evaluates the expression on the given data set regardless of any
     // schema. The caller is responsible for validating the expected schema.
     Evaluate(data any, workflowContext map[string][]byte) (any, error)
+    // String returns the string representation of the expression.
+    String() string
 }
 
 type expression struct {
-    ast ast.ASTNode
+    expression string
+    ast        ast.ASTNode
+}
+
+func (e expression) String() string {
+    return e.expression
 }
 
 func (e expression) Type(scope schema.Scope, workflowContext map[string][]byte) (schema.Type, error) {
