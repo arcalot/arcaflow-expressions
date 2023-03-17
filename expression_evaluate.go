@@ -3,7 +3,6 @@ package expressions
 import (
     "fmt"
     "reflect"
-    "strconv"
 
     "go.flow.arcalot.io/expressions/internal/ast"
 )
@@ -72,16 +71,9 @@ func evaluateMapKey(data any, mapKey any) (any, error) {
         }
         return indexValue.Interface(), nil
     case reflect.Slice:
-        // In case of slices we convert the data to integers.
+        // In case of slices we want integers. The user is responsible for converting the type to an integer themselves.
         var sliceIndex int
         switch t := mapKey.(type) {
-        case string:
-            var err error
-            i, err := strconv.ParseInt(t, 10, 64)
-            if err != nil {
-                return nil, fmt.Errorf("cannot parse %v as an integer index for a list", mapKey)
-            }
-            sliceIndex = int(i)
         case int:
             sliceIndex = t
         default:

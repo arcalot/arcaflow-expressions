@@ -74,8 +74,11 @@ func (d *dependencyContext) dependencies(
             case schema.TypeIDList:
                 // Lists have integer indexes, so we try to make sure that the subexpression is yielding an int or
                 // int-like type. This will have the best chance of not resulting in a runtime error.
-                list := leftType.(*schema.ListSchema)
-                if keyType.TypeID() != schema.TypeIDInt && keyType.TypeID() != schema.TypeIDIntEnum {
+
+                list := leftType.(schema.UntypedList)
+                switch keyType.TypeID() {
+                case schema.TypeIDInt:
+                default:
                     return nil, nil, fmt.Errorf("subexpressions resulted in a %s type for a list key, integer expected", keyType.TypeID())
                 }
                 pathItem := &PathTree{
