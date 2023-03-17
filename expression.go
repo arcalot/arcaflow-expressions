@@ -38,6 +38,7 @@ type Expression interface {
     String() string
 }
 
+// expression is the implementation of Expression. It holds the original expression, as well as the parsed AST.
 type expression struct {
     expression string
     ast        ast.ASTNode
