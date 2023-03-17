@@ -4,3 +4,5 @@ go.flow.arcalot.io/pluginsdk v0.1.1-0.20230317070134-462e49b0ffd0 h1:C4qczXIZrHf
 go.flow.arcalot.io/pluginsdk v0.1.1-0.20230317070134-462e49b0ffd0/go.mod h1:ceY4HhUbnhZyQa3C7lXu25TNVCbsWGuYZapsV5RuIrk=
 go.flow.arcalot.io/pluginsdk v0.1.1 h1:dFyjaNEW/tuosHpYCb9BJLWIm5ohvXmtv6GqJn8yekE=
 go.flow.arcalot.io/pluginsdk v0.1.1/go.mod h1:ceY4HhUbnhZyQa3C7lXu25TNVCbsWGuYZapsV5RuIrk=
+go.flow.arcalot.io/pluginsdk v0.1.2 h1:zYtSlQCdHZ2fMF24ueboZpHp28k6TONOIhh1GJ49CGk=
+go.flow.arcalot.io/pluginsdk v0.1.2/go.mod h1:ceY4HhUbnhZyQa3C7lXu25TNVCbsWGuYZapsV5RuIrk=
