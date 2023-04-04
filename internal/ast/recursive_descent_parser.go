@@ -22,7 +22,7 @@ filtering/querying will be added later if needed.
 // expression.
 // Create this with the function expressions.InitParser
 // This struct and its functions are used to parse the
-// expression it was intialized with.
+// expression it was initialized with.
 type Parser struct {
 	t            *tokenizer
 	currentToken *TokenValue
@@ -83,7 +83,7 @@ func (p *Parser) parseBracketAccess(expressionToAccess Node) (*MapAccessor, erro
 	case p.currentToken.TokenID == IntLiteralToken:
 		parsedInt, err := strconv.Atoi(p.currentToken.Value)
 		if err != nil {
-			return nil, err // Should not fail if the parser is setup correctly
+			return nil, err // Should not fail if the parser is set up correctly
 		}
 		key = &Key{Literal: &IntLiteral{IntValue: parsedInt}}
 	case p.currentToken.TokenID == ExpressionStartToken:
@@ -153,7 +153,7 @@ func (p *Parser) ParseExpression() (Node, error) {
 	return node, err
 }
 
-// parseSubExpression parses all of the dot notations and map accesses.
+// parseSubExpression parses all the dot notations and map accesses.
 func (p *Parser) parseSubExpression() (Node, error) {
 	supportedTokens := []TokenID{RootAccessToken, CurrentObjectAccessToken, IdentifierToken}
 	// The first identifier should always be the root identifier, $
@@ -189,7 +189,7 @@ func (p *Parser) parseSubExpression() (Node, error) {
 			if err != nil {
 				return nil, err
 			}
-			parsed = &DotNotation{LeftAccessableNode: parsed, RightAccessIdentifier: accessingIdentifier}
+			parsed = &DotNotation{LeftAccessibleNode: parsed, RightAccessIdentifier: accessingIdentifier}
 		case p.currentToken.TokenID == BracketAccessDelimiterStartToken:
 			// Bracket notation
 			parsedMapAccess, err := p.parseBracketAccess(parsed)

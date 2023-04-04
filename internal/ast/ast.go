@@ -18,7 +18,7 @@ type Node interface {
 }
 
 // ValueLiteral represents any kind of literals that can be represented
-// by the abstract systax tree. Examples: ints, strings.
+// by the abstract syntax tree. Examples: ints, strings.
 type ValueLiteral interface {
 	Value() interface{}
 	String() string
@@ -56,11 +56,10 @@ func (l *IntLiteral) Value() interface{} {
 	return l.IntValue
 }
 
-// Key represents any of the valid values that can be stored inside
-// of a map/object bracket access. It can be either a sub-expression,
-// represented as an Node, or as any supported literal, represented
-// as an ValueLiteral. The one that is not being represented
-// will be nil.
+// Key represents any of the valid values that can be used in map/object
+// bracket access. It can be either a sub-expression, represented as a
+// Node, or as any supported literal, represented as a ValueLiteral.
+// The one that is not being represented will be nil.
 type Key struct {
 	// A key can be either a literal or
 	// a sub-expression that can be evaluated
@@ -140,7 +139,7 @@ type DotNotation struct {
 	RightAccessIdentifier Node
 	// The expression on the left could be one of several nodes.
 	// I.e. An Identifier, a MapAccessor, or another DotNotation
-	LeftAccessableNode Node
+	LeftAccessibleNode Node
 }
 
 // Right returns the identifier being accessed in the left node.
@@ -150,18 +149,18 @@ func (d *DotNotation) Right() Node {
 
 // Left returns the left node being accessed.
 func (d *DotNotation) Left() Node {
-	return d.LeftAccessableNode
+	return d.LeftAccessibleNode
 }
 
 // String returns the string representing the left node, followed by '.',
-// followed by the string representing the right identiier.
+// followed by the string representing the right identifier.
 func (d *DotNotation) String() string {
 	if d == nil {
 		return invalid
 	}
 	var left, right string
-	if d.LeftAccessableNode != nil {
-		left = d.LeftAccessableNode.String()
+	if d.LeftAccessibleNode != nil {
+		left = d.LeftAccessibleNode.String()
 	} else {
 		left = invalid
 	}

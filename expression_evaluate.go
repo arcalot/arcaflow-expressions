@@ -19,7 +19,7 @@ func evaluate(node ast.Node, data any, rootData any, workflowContext map[string]
 	case *ast.Key:
 		return evaluateKey(n, data, rootData, workflowContext)
 	case *ast.Identifier:
-		return evaluateIdentifier(n, data, rootData, workflowContext)
+		return evaluateIdentifier(n, data, rootData)
 	default:
 		return nil, fmt.Errorf("unsupported  node type: %T", n)
 	}
@@ -30,7 +30,7 @@ func evaluate(node ast.Node, data any, rootData any, workflowContext map[string]
 // The dot notation is an item.item expression part, where we simply need to evaluate the
 // left and right subtrees in order.
 func evaluateDotNotation(node *ast.DotNotation, data any, rootData any, workflowContext map[string][]byte) (any, error) {
-	leftResult, err := evaluate(node.LeftAccessableNode, data, rootData, workflowContext)
+	leftResult, err := evaluate(node.LeftAccessibleNode, data, rootData, workflowContext)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +72,7 @@ func evaluateKey(node *ast.Key, data any, rootData any, workflowContext map[stri
 
 // Evaluates an identifier
 // Identifiers are items in dot notation.
-func evaluateIdentifier(node *ast.Identifier, data any, rootData any, workflowContext map[string][]byte) (any, error) {
+func evaluateIdentifier(node *ast.Identifier, data any, rootData any) (any, error) {
 	switch node.IdentifierName {
 	case "$":
 		// $ is the root node of the data structure.

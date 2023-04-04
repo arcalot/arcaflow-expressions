@@ -13,8 +13,8 @@ const (
 	// IdentifierToken represents a token with any valid object name.
 	IdentifierToken TokenID = "identifier"
 	// StringLiteralToken represents a token that has a sequence of characters.
-	// Currently supports the string format used in golang, and will include
-	// the " before and after the conents of the string.
+	// Supports the string format used in golang, and will include
+	// the " before and after the contents of the string.
 	// Characters can be escaped the common way with a backslash.
 	StringLiteralToken TokenID = "string"
 	// IntLiteralToken represents an integer token. Must not start with 0.
@@ -28,10 +28,10 @@ const (
 	//nolint:gosec
 	BracketAccessDelimiterEndToken TokenID = "map-delimiter-end"
 	// ExpressionStartToken represents the start token of a sub-expression
-	// inside of an object bracket access. The '(' in 'obj[($.a)]'.
+	// in an object bracket access. The '(' in 'obj[($.a)]'.
 	ExpressionStartToken TokenID = "expression-start"
-	// ExpressionEndToken represents the end token of a sub-expression inside
-	// of an object bracket access. The ')' in 'obj[($.a)]'.
+	// ExpressionEndToken represents the end token of a sub-expression in
+	// an object bracket access. The ')' in 'obj[($.a)]'.
 	ExpressionEndToken TokenID = "expression-end"
 	// DotObjectAccessToken represents the '.' token in 'a.b' (dot notation).
 	DotObjectAccessToken TokenID = "object-access"
@@ -86,16 +86,16 @@ var tokenPatterns = []tokenPattern{
 	{IdentifierToken, regexp.MustCompile(`^\w+$`)},                 // Any valid object name
 	{StringLiteralToken, regexp.MustCompile(`^".*"$|^'.*'$`)},      // "string example"
 	{BracketAccessDelimiterStartToken, regexp.MustCompile(`^\[$`)}, // the [ in map["key"]
-	{BracketAccessDelimiterEndToken, regexp.MustCompile(`^\]$`)},   // the ] in map["key"]
+	{BracketAccessDelimiterEndToken, regexp.MustCompile(`^]$`)},    // the ] in map["key"]
 	{ExpressionStartToken, regexp.MustCompile(`^\($`)},             // (
 	{ExpressionEndToken, regexp.MustCompile(`^\)$`)},               // )
 	{DotObjectAccessToken, regexp.MustCompile(`^\.$`)},             // .
 	{RootAccessToken, regexp.MustCompile(`^\$$`)},                  // $
 	{CurrentObjectAccessToken, regexp.MustCompile(`^@$`)},          // @
 	{EqualsToken, regexp.MustCompile(`^=$`)},                       // =
-	{SelectorToken, regexp.MustCompile(`^\:$`)},                    // :
+	{SelectorToken, regexp.MustCompile(`^:$`)},                     // :
 	{FilterToken, regexp.MustCompile(`^\?$`)},                      // ?
-	{NegationToken, regexp.MustCompile(`^\-$`)},                    // -
+	{NegationToken, regexp.MustCompile(`^-$`)},                     // -
 	{WildcardToken, regexp.MustCompile(`^\*$`)},                    // *
 }
 

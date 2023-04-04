@@ -8,8 +8,8 @@ import (
 	"go.flow.arcalot.io/pluginsdk/schema"
 )
 
-// dependencyContext holds the root data for a dependency evaluation in an expression. This is useful so we don't need
-// to pass the root type, path, and workflow context along with each function call.
+// dependencyContext holds the root data for a dependency evaluation in an expression. This is useful so that we
+// don't need to pass the root type, path, and workflow context along with each function call.
 type dependencyContext struct {
 	rootType        schema.Scope
 	rootPath        *PathTree
@@ -18,7 +18,7 @@ type dependencyContext struct {
 
 // dependencies evaluates an AST node for possible dependencies. It adds items to the specified path tree and returns
 // it. You can use this to build a list of value paths that make up the dependencies of this expression. Furthermore,
-// you can also use this function to evaluate what the resulting type of an expression will be.
+// you can also use this function to evaluate the type the resolved expression's value will have.
 func (d *dependencyContext) dependencies(
 	node ast.Node,
 	currentType schema.Type,
@@ -28,7 +28,7 @@ func (d *dependencyContext) dependencies(
 	case *ast.DotNotation:
 		// The dot notation is when item.item is encountered. We simply traverse the AST in order, left to right,
 		// nothing specific to do.
-		leftType, leftPath, err := d.dependencies(n.LeftAccessableNode, currentType, path)
+		leftType, leftPath, err := d.dependencies(n.LeftAccessibleNode, currentType, path)
 		if err != nil {
 			return nil, nil, err
 		}

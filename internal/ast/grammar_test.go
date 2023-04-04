@@ -145,7 +145,7 @@ func TestRootVar(t *testing.T) {
 
 	// $.test
 	root := &DotNotation{}
-	root.LeftAccessableNode = &Identifier{IdentifierName: "$"}
+	root.LeftAccessibleNode = &Identifier{IdentifierName: "$"}
 	root.RightAccessIdentifier = &Identifier{IdentifierName: "test"}
 
 	// Create parser
@@ -172,11 +172,11 @@ func TestDotNotation(t *testing.T) {
 
 	// level2: $.parent
 	level2 := &DotNotation{}
-	level2.LeftAccessableNode = &Identifier{IdentifierName: "$"}
+	level2.LeftAccessibleNode = &Identifier{IdentifierName: "$"}
 	level2.RightAccessIdentifier = &Identifier{IdentifierName: "parent"}
 	// root: <level2>.child
 	root := &DotNotation{}
-	root.LeftAccessableNode = level2
+	root.LeftAccessibleNode = level2
 	root.RightAccessIdentifier = &Identifier{IdentifierName: "child"}
 
 	// Create parser
@@ -203,7 +203,7 @@ func TestMapAccess(t *testing.T) {
 
 	// level2: $.map
 	level2 := &DotNotation{}
-	level2.LeftAccessableNode = &Identifier{IdentifierName: "$"}
+	level2.LeftAccessibleNode = &Identifier{IdentifierName: "$"}
 	level2.RightAccessIdentifier = &Identifier{IdentifierName: "map"}
 	// root: <level2>.["key"]
 	root := &MapAccessor{}
@@ -234,11 +234,11 @@ func TestDeepMapAccess(t *testing.T) {
 
 	// level5: $.a
 	level5 := &DotNotation{}
-	level5.LeftAccessableNode = &Identifier{IdentifierName: "$"}
+	level5.LeftAccessibleNode = &Identifier{IdentifierName: "$"}
 	level5.RightAccessIdentifier = &Identifier{IdentifierName: "a"}
 	// level4: <level5>.b
 	level4 := &DotNotation{}
-	level4.LeftAccessableNode = level5
+	level4.LeftAccessibleNode = level5
 	level4.RightAccessIdentifier = &Identifier{IdentifierName: "b"}
 	// level3: <level4>[0]
 	level3 := &MapAccessor{}
@@ -246,7 +246,7 @@ func TestDeepMapAccess(t *testing.T) {
 	level3.RightKey = Key{Literal: &IntLiteral{IntValue: 0}}
 	// level2: <level3>.c
 	level2 := &DotNotation{}
-	level2.LeftAccessableNode = level3
+	level2.LeftAccessibleNode = level3
 	level2.RightAccessIdentifier = &Identifier{IdentifierName: "c"}
 	// root: <level2>["k"]
 	root := &MapAccessor{}
@@ -277,15 +277,15 @@ func TestCompound(t *testing.T) {
 
 	// level5: $.a
 	level5 := &DotNotation{}
-	level5.LeftAccessableNode = &Identifier{IdentifierName: "$"}
+	level5.LeftAccessibleNode = &Identifier{IdentifierName: "$"}
 	level5.RightAccessIdentifier = &Identifier{IdentifierName: "a"}
 	// level4: <level5>.b
 	level4 := &DotNotation{}
-	level4.LeftAccessableNode = level5
+	level4.LeftAccessibleNode = level5
 	level4.RightAccessIdentifier = &Identifier{IdentifierName: "b"}
 	// level3: <level4>.c
 	level3 := &DotNotation{}
-	level3.LeftAccessableNode = level4
+	level3.LeftAccessibleNode = level4
 	level3.RightAccessIdentifier = &Identifier{IdentifierName: "c"}
 	// level2: <level3>["key"]
 	level2 := &MapAccessor{}
@@ -293,7 +293,7 @@ func TestCompound(t *testing.T) {
 	level2.RightKey = Key{Literal: &StringLiteral{StrValue: "key"}}
 	// root: <level2>.d
 	root := &DotNotation{}
-	root.LeftAccessableNode = level2
+	root.LeftAccessibleNode = level2
 	root.RightAccessIdentifier = &Identifier{IdentifierName: "d"}
 
 	// Create parser
@@ -374,7 +374,7 @@ func TestSubExpression(t *testing.T) {
 	expression := "$[($.a)]"
 
 	right := &DotNotation{}
-	right.LeftAccessableNode = &Identifier{IdentifierName: "$"}
+	right.LeftAccessibleNode = &Identifier{IdentifierName: "$"}
 	right.RightAccessIdentifier = &Identifier{IdentifierName: "a"}
 	root := &MapAccessor{}
 	root.LeftNode = &Identifier{IdentifierName: "$"}
