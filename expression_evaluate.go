@@ -7,19 +7,26 @@ import (
 	"go.flow.arcalot.io/expressions/internal/ast"
 )
 
+// evaluateContext holds the root data and context for a value evaluation in an expression. This is useful so that we
+// don't need to pass the data, root data, and workflow context along with each function call.
+type evaluateContext struct {
+	rootData        any
+	workflowContext map[string][]byte
+}
+
 // evaluate evaluates the passed  node on a set of data consisting of primitive types. It must also have access
 // to the root data to evaluate subexpressions, as well as the workflow context to pull in additional files. It will
 // return the evaluated data.
-func evaluate(node ast.Node, data any, rootData any, workflowContext map[string][]byte) (any, error) {
+func (c evaluateContext) evaluate(node ast.Node, data any) (any, error) {
 	switch n := node.(type) {
 	case *ast.DotNotation:
-		return evaluateDotNotation(n, data, rootData, workflowContext)
+		return c.evaluateDotNotation(n, data)
 	case *ast.MapAccessor:
-		return evaluateMapAccessor(n, data, rootData, workflowContext)
+		return c.evaluateMapAccessor(n, data)
 	case *ast.Key:
-		return evaluateKey(n, data, rootData, workflowContext)
+		return c.evaluateKey(n, data)
 	case *ast.Identifier:
-		return evaluateIdentifier(n, data, rootData)
+		return c.evaluateIdentifier(n, data)
 	default:
 		return nil, fmt.Errorf("unsupported  node type: %T", n)
 	}
@@ -29,26 +36,26 @@ func evaluate(node ast.Node, data any, rootData any, workflowContext map[string]
 //
 // The dot notation is an item.item expression part, where we simply need to evaluate the
 // left and right subtrees in order.
-func evaluateDotNotation(node *ast.DotNotation, data any, rootData any, workflowContext map[string][]byte) (any, error) {
-	leftResult, err := evaluate(node.LeftAccessibleNode, data, rootData, workflowContext)
+func (c evaluateContext) evaluateDotNotation(node *ast.DotNotation, data any) (any, error) {
+	leftResult, err := c.evaluate(node.LeftAccessibleNode, data)
 	if err != nil {
 		return nil, err
 	}
-	return evaluate(node.RightAccessIdentifier, leftResult, rootData, workflowContext)
+	return c.evaluate(node.RightAccessIdentifier, leftResult)
 }
 
 // Evaluates a MapAccessor node, which is a more advanced version of dot notation
 //
 // The map accessor is an item[item] expression part, where we evaluate the left subtree first, then the right
 // subtree to obtain the map key. Finally, the map key is used to look up the resulting data.
-func evaluateMapAccessor(node *ast.MapAccessor, data any, rootData any, workflowContext map[string][]byte) (any, error) {
+func (c evaluateContext) evaluateMapAccessor(node *ast.MapAccessor, data any) (any, error) {
 	// First evaluate the value to the left of the [], since we're accessing a value in it.
-	leftResult, err := evaluate(node.LeftNode, data, rootData, workflowContext)
+	leftResult, err := c.evaluate(node.LeftNode, data)
 	if err != nil {
 		return nil, err
 	}
 	// Next, evaluates the item inside the brackets. Can be any valid literal or something that evaluates into a value.
-	mapKey, err := evaluate(&node.RightKey, leftResult, rootData, workflowContext)
+	mapKey, err := c.evaluate(&node.RightKey, leftResult)
 	if err != nil {
 		return nil, err
 	}
@@ -59,12 +66,12 @@ func evaluateMapAccessor(node *ast.MapAccessor, data any, rootData any, workflow
 //
 // A map access has the form `item[itemkey]`, and the key can be either a literal (e.g. string) or a
 // subexpression, which needs to be evaluated in its own right.
-func evaluateKey(node *ast.Key, data any, rootData any, workflowContext map[string][]byte) (any, error) {
+func (c evaluateContext) evaluateKey(node *ast.Key, data any) (any, error) {
 	switch {
 	case node.Literal != nil:
 		return node.Literal.Value(), nil
 	case node.SubExpression != nil:
-		return evaluate(node.SubExpression, data, rootData, workflowContext)
+		return c.evaluate(node.SubExpression, data)
 	default:
 		return nil, fmt.Errorf("bug: neither literal, nor subexpression are set on key")
 	}
@@ -72,11 +79,11 @@ func evaluateKey(node *ast.Key, data any, rootData any, workflowContext map[stri
 
 // Evaluates an identifier
 // Identifiers are items in dot notation.
-func evaluateIdentifier(node *ast.Identifier, data any, rootData any) (any, error) {
+func (c evaluateContext) evaluateIdentifier(node *ast.Identifier, data any) (any, error) {
 	switch node.IdentifierName {
 	case "$":
 		// $ is the root node of the data structure.
-		return rootData, nil
+		return c.rootData, nil
 	default:
 		// Otherwise, it's a normal accessor key, which we evaluate like a map key.
 		return evaluateMapAccess(data, node.IdentifierName)

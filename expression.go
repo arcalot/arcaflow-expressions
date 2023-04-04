@@ -83,5 +83,9 @@ func (e expression) Dependencies(scope schema.Scope, workflowContext map[string]
 }
 
 func (e expression) Evaluate(data any, workflowContext map[string][]byte) (any, error) {
-	return evaluate(e.ast, data, data, workflowContext)
+	context := &evaluateContext{
+		rootData:        data,
+		workflowContext: workflowContext,
+	}
+	return context.evaluate(e.ast, data)
 }

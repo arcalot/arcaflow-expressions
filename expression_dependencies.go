@@ -19,7 +19,7 @@ type dependencyContext struct {
 // dependencies evaluates an AST node for possible dependencies. It adds items to the specified path tree and returns
 // it. You can use this to build a list of value paths that make up the dependencies of this expression. Furthermore,
 // you can also use this function to evaluate the type the resolved expression's value will have.
-func (d *dependencyContext) dependencies(
+func (c *dependencyContext) dependencies(
 	node ast.Node,
 	currentType schema.Type,
 	path *PathTree,
@@ -28,31 +28,31 @@ func (d *dependencyContext) dependencies(
 	case *ast.DotNotation:
 		// The dot notation is when item.item is encountered. We simply traverse the AST in order, left to right,
 		// nothing specific to do.
-		leftType, leftPath, err := d.dependencies(n.LeftAccessibleNode, currentType, path)
+		leftType, leftPath, err := c.dependencies(n.LeftAccessibleNode, currentType, path)
 		if err != nil {
 			return nil, nil, err
 		}
-		return d.dependencies(n.RightAccessIdentifier, leftType, leftPath)
+		return c.dependencies(n.RightAccessIdentifier, leftType, leftPath)
 	case *ast.MapAccessor:
 		// A map accessor is when an item[item] is encountered. Here we need to evaluate the left tree as usual, then
 		// use the right tree according to its type. This is either a literal (e.g. a string), or it is a subexpression.
 		// Literals will call dependenciesMapKey, while subexpressions need to be evaluated on their own on the root
 		// type.
-		leftType, leftPath, err := d.dependencies(n.LeftNode, currentType, path)
+		leftType, leftPath, err := c.dependencies(n.LeftNode, currentType, path)
 		if err != nil {
 			return nil, nil, err
 		}
 
 		switch {
 		case n.RightKey.Literal != nil:
-			return d.dependenciesMapKey(leftType, n.RightKey.Literal.Value(), leftPath)
+			return c.dependenciesMapKey(leftType, n.RightKey.Literal.Value(), leftPath)
 		case n.RightKey.SubExpression != nil:
 			// If we have a subexpression, we need to add all possible keys to the dependency map since we can't
 			// determine the correct one to extract. This could be further refined by evaluating the type. If it is an
 			// enum, we could potentially limit the number of dependencies.
 
 			// Evaluate the subexpression
-			keyType, _, err := d.dependencies(n.RightKey.SubExpression, d.rootType, d.rootPath)
+			keyType, _, err := c.dependencies(n.RightKey.SubExpression, c.rootType, c.rootPath)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -104,10 +104,10 @@ func (d *dependencyContext) dependencies(
 		switch n.IdentifierName {
 		case "$":
 			// This identifier means the root of the expression.
-			return d.rootType, path, nil
+			return c.rootType, path, nil
 		default:
 			// This case is the item.item type expression, where the right item is the "identifier" in question.
-			return d.dependenciesMapKey(currentType, n.IdentifierName, path)
+			return c.dependenciesMapKey(currentType, n.IdentifierName, path)
 		}
 	default:
 		return nil, nil, fmt.Errorf("unsupported AST node type: %T", n)
@@ -116,7 +116,7 @@ func (d *dependencyContext) dependencies(
 
 // dependenciesMapKey is a helper function that extracts an item in a list, map, or object. This is used when an
 // identifier or a map accessor are encountered.
-func (d *dependencyContext) dependenciesMapKey(currentType schema.Type, key any, path *PathTree) (schema.Type, *PathTree, error) {
+func (c *dependencyContext) dependenciesMapKey(currentType schema.Type, key any, path *PathTree) (schema.Type, *PathTree, error) {
 	switch currentType.TypeID() {
 	case schema.TypeIDList:
 		// Lists can only have numeric indexes, therefore we need to convert the types to integers. Since internally
