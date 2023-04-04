@@ -117,7 +117,7 @@ func (p *Parser) parseBracketAccess(expressionToAccess ASTNode) (*MapAccessor, e
 		return nil, err
 	}
 
-	return &MapAccessor{LeftNode: expressionToAccess, RightKey: key}, nil
+	return &MapAccessor{LeftNode: expressionToAccess, RightKey: *key}, nil
 
 }
 

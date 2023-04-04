@@ -95,12 +95,12 @@ func (k *Key) String() string {
 // the value at a key in an object.
 type MapAccessor struct {
 	LeftNode ASTNode
-	RightKey *Key
+	RightKey Key
 }
 
 // Right returns the key.
 func (m *MapAccessor) Right() ASTNode {
-	return m.RightKey
+	return &m.RightKey
 }
 
 // Left returns the node being accessed.
