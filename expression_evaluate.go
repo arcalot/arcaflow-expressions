@@ -7,10 +7,10 @@ import (
 	"go.flow.arcalot.io/expressions/internal/ast"
 )
 
-// evaluate evaluates the passed AST node on a set of data consisting of primitive types. It must also have access
+// evaluate evaluates the passed  node on a set of data consisting of primitive types. It must also have access
 // to the root data to evaluate subexpressions, as well as the workflow context to pull in additional files. It will
 // return the evaluated data.
-func evaluate(node ast.ASTNode, data any, rootData any, workflowContext map[string][]byte) (any, error) {
+func evaluate(node ast.Node, data any, rootData any, workflowContext map[string][]byte) (any, error) {
 	switch n := node.(type) {
 	case *ast.DotNotation:
 		return evaluateDotNotation(n, data, rootData, workflowContext)
@@ -21,7 +21,7 @@ func evaluate(node ast.ASTNode, data any, rootData any, workflowContext map[stri
 	case *ast.Identifier:
 		return evaluateIdentifier(n, data, rootData, workflowContext)
 	default:
-		return nil, fmt.Errorf("unsupported AST node type: %T", n)
+		return nil, fmt.Errorf("unsupported  node type: %T", n)
 	}
 }
 

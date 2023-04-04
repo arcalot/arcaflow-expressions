@@ -20,7 +20,7 @@ type dependencyContext struct {
 // it. You can use this to build a list of value paths that make up the dependencies of this expression. Furthermore,
 // you can also use this function to evaluate what the resulting type of an expression will be.
 func (d *dependencyContext) dependencies(
-	node ast.ASTNode,
+	node ast.Node,
 	currentType schema.Type,
 	path *PathTree,
 ) (schema.Type, *PathTree, error) {

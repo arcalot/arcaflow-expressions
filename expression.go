@@ -41,7 +41,7 @@ type Expression interface {
 // expression is the implementation of Expression. It holds the original expression, as well as the parsed AST.
 type expression struct {
 	expression string
-	ast        ast.ASTNode
+	ast        ast.Node
 }
 
 func (e expression) String() string {
