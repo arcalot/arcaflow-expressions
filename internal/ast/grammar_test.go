@@ -206,7 +206,7 @@ func TestMapAccess(t *testing.T) {
 	level2.LeftAccessibleNode = &Identifier{IdentifierName: "$"}
 	level2.RightAccessIdentifier = &Identifier{IdentifierName: "map"}
 	// root: <level2>.["key"]
-	root := &MapAccessor{}
+	root := &BracketAccessor{}
 	root.LeftNode = level2
 	root.RightKey = Key{Literal: &StringLiteral{StrValue: "key"}}
 
@@ -222,9 +222,9 @@ func TestMapAccess(t *testing.T) {
 
 	assert.Equals(t, expression, root.String())
 
-	parsedRoot, ok := parsedResult.(*MapAccessor)
+	parsedRoot, ok := parsedResult.(*BracketAccessor)
 	if !ok {
-		t.Fatalf("Output is not of type *MapAccessor")
+		t.Fatalf("Output is not of type *BracketAccessor")
 	}
 	assert.Equals(t, parsedRoot, root)
 }
@@ -241,7 +241,7 @@ func TestDeepMapAccess(t *testing.T) {
 	level4.LeftAccessibleNode = level5
 	level4.RightAccessIdentifier = &Identifier{IdentifierName: "b"}
 	// level3: <level4>[0]
-	level3 := &MapAccessor{}
+	level3 := &BracketAccessor{}
 	level3.LeftNode = level4
 	level3.RightKey = Key{Literal: &IntLiteral{IntValue: 0}}
 	// level2: <level3>.c
@@ -249,7 +249,7 @@ func TestDeepMapAccess(t *testing.T) {
 	level2.LeftAccessibleNode = level3
 	level2.RightAccessIdentifier = &Identifier{IdentifierName: "c"}
 	// root: <level2>["k"]
-	root := &MapAccessor{}
+	root := &BracketAccessor{}
 	root.LeftNode = level2
 	root.RightKey = Key{Literal: &StringLiteral{StrValue: "k"}}
 
@@ -265,9 +265,9 @@ func TestDeepMapAccess(t *testing.T) {
 
 	assert.Equals(t, expression, root.String())
 
-	parsedRoot, ok := parsedResult.(*MapAccessor)
+	parsedRoot, ok := parsedResult.(*BracketAccessor)
 	if !ok {
-		t.Fatalf("Output is not of type *MapAccessor")
+		t.Fatalf("Output is not of type *BracketAccessor")
 	}
 	assert.Equals(t, parsedRoot, root)
 }
@@ -288,7 +288,7 @@ func TestCompound(t *testing.T) {
 	level3.LeftAccessibleNode = level4
 	level3.RightAccessIdentifier = &Identifier{IdentifierName: "c"}
 	// level2: <level3>["key"]
-	level2 := &MapAccessor{}
+	level2 := &BracketAccessor{}
 	level2.LeftNode = level3
 	level2.RightKey = Key{Literal: &StringLiteral{StrValue: "key"}}
 	// root: <level2>.d
@@ -318,16 +318,16 @@ func TestCompound(t *testing.T) {
 func TestAllBracketNotation(t *testing.T) {
 	expression := `$["a"]["b"][0]["c"]`
 
-	level4 := &MapAccessor{}
+	level4 := &BracketAccessor{}
 	level4.LeftNode = &Identifier{"$"}
 	level4.RightKey = Key{Literal: &StringLiteral{"a"}}
-	level3 := &MapAccessor{}
+	level3 := &BracketAccessor{}
 	level3.LeftNode = level4
 	level3.RightKey = Key{Literal: &StringLiteral{"b"}}
-	level2 := &MapAccessor{}
+	level2 := &BracketAccessor{}
 	level2.LeftNode = level3
 	level2.RightKey = Key{Literal: &IntLiteral{0}}
-	root := &MapAccessor{}
+	root := &BracketAccessor{}
 	root.LeftNode = level2
 	root.RightKey = Key{Literal: &StringLiteral{"c"}}
 	// Create parser
@@ -342,9 +342,9 @@ func TestAllBracketNotation(t *testing.T) {
 
 	assert.Equals(t, expression, root.String())
 
-	parsedRoot, ok := parsedResult.(*MapAccessor)
+	parsedRoot, ok := parsedResult.(*BracketAccessor)
 	if !ok {
-		t.Fatalf("Output is not of type *MapAccessor")
+		t.Fatalf("Output is not of type *BracketAccessor")
 	}
 	assert.Equals(t, parsedRoot, root)
 }
@@ -376,7 +376,7 @@ func TestSubExpression(t *testing.T) {
 	right := &DotNotation{}
 	right.LeftAccessibleNode = &Identifier{IdentifierName: "$"}
 	right.RightAccessIdentifier = &Identifier{IdentifierName: "a"}
-	root := &MapAccessor{}
+	root := &BracketAccessor{}
 	root.LeftNode = &Identifier{IdentifierName: "$"}
 	root.RightKey = Key{SubExpression: right}
 
@@ -392,9 +392,9 @@ func TestSubExpression(t *testing.T) {
 
 	assert.Equals(t, expression, root.String())
 
-	parsedRoot, ok := parsedResult.(*MapAccessor)
+	parsedRoot, ok := parsedResult.(*BracketAccessor)
 	if !ok {
-		t.Fatalf("Output is not of type *MapAccessor")
+		t.Fatalf("Output is not of type *BracketAccessor")
 	}
 	assert.Equals(t, parsedRoot, root)
 }

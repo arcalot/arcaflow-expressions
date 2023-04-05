@@ -21,8 +21,8 @@ func (c evaluateContext) evaluate(node ast.Node, data any) (any, error) {
 	switch n := node.(type) {
 	case *ast.DotNotation:
 		return c.evaluateDotNotation(n, data)
-	case *ast.MapAccessor:
-		return c.evaluateMapAccessor(n, data)
+	case *ast.BracketAccessor:
+		return c.evaluateBracketAccessor(n, data)
 	case *ast.Key:
 		return c.evaluateKey(n, data)
 	case *ast.Identifier:
@@ -48,7 +48,7 @@ func (c evaluateContext) evaluateDotNotation(node *ast.DotNotation, data any) (a
 //
 // The map accessor is an item[item] expression part, where we evaluate the left subtree first, then the right
 // subtree to obtain the map key. Finally, the map key is used to look up the resulting data.
-func (c evaluateContext) evaluateMapAccessor(node *ast.MapAccessor, data any) (any, error) {
+func (c evaluateContext) evaluateBracketAccessor(node *ast.BracketAccessor, data any) (any, error) {
 	// First evaluate the value to the left of the [], since we're accessing a value in it.
 	leftResult, err := c.evaluate(node.LeftNode, data)
 	if err != nil {

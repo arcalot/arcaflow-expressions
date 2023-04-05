@@ -54,7 +54,7 @@ func (p *Parser) advanceToken() error {
 // bracket, followed by the key, followed by a closing bracket.
 //
 //nolint:funlen
-func (p *Parser) parseBracketAccess(expressionToAccess Node) (*MapAccessor, error) {
+func (p *Parser) parseBracketAccess(expressionToAccess Node) (*BracketAccessor, error) {
 	if expressionToAccess == nil {
 		return nil, errors.New("parameter expressionToAccess is nil")
 	}
@@ -117,7 +117,7 @@ func (p *Parser) parseBracketAccess(expressionToAccess Node) (*MapAccessor, erro
 		return nil, err
 	}
 
-	return &MapAccessor{LeftNode: expressionToAccess, RightKey: *key}, nil
+	return &BracketAccessor{LeftNode: expressionToAccess, RightKey: *key}, nil
 
 }
 

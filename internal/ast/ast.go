@@ -90,26 +90,28 @@ func (k *Key) String() string {
 	}
 }
 
-// MapAccessor represents a part of the abstract syntax tree that is accessing
-// the value at a key in an object.
-type MapAccessor struct {
+// BracketAccessor represents a part of the abstract syntax tree that is accessing
+// the value at a key in a map/object, or index of a list.
+// The format is the value to the left, followed by an open/right square bracket, followed
+// by the key, followed by a close/left square bracket.
+type BracketAccessor struct {
 	LeftNode Node
 	RightKey Key
 }
 
 // Right returns the key.
-func (m *MapAccessor) Right() Node {
+func (m *BracketAccessor) Right() Node {
 	return &m.RightKey
 }
 
 // Left returns the node being accessed.
-func (m *MapAccessor) Left() Node {
+func (m *BracketAccessor) Left() Node {
 	return m.LeftNode
 }
 
 // String returns the string from the accessed node, followed by '[', followed
 // by the string from the key, followed by ']'.
-func (m *MapAccessor) String() string {
+func (m *BracketAccessor) String() string {
 	return m.LeftNode.String() + "[" + m.RightKey.String() + "]"
 }
 
