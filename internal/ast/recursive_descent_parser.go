@@ -22,7 +22,7 @@ filtering/querying will be added later if needed.
 // expression.
 // Create this with the function expressions.InitParser
 // This struct and its functions are used to parse the
-// expression it was intialized with.
+// expression it was initialized with.
 type Parser struct {
 	t            *tokenizer
 	currentToken *TokenValue
@@ -54,7 +54,7 @@ func (p *Parser) advanceToken() error {
 // bracket, followed by the key, followed by a closing bracket.
 //
 //nolint:funlen
-func (p *Parser) parseBracketAccess(expressionToAccess ASTNode) (*MapAccessor, error) {
+func (p *Parser) parseBracketAccess(expressionToAccess Node) (*BracketAccessor, error) {
 	if expressionToAccess == nil {
 		return nil, errors.New("parameter expressionToAccess is nil")
 	}
@@ -79,13 +79,13 @@ func (p *Parser) parseBracketAccess(expressionToAccess ASTNode) (*MapAccessor, e
 	switch {
 	case p.currentToken.TokenID == StringLiteralToken:
 		// The literal token includes the "", so trim the ends off.
-		key = &Key{Literal: &ASTStringLiteral{StrValue: p.currentToken.Value[1 : len(p.currentToken.Value)-1]}}
+		key = &Key{Literal: &StringLiteral{StrValue: p.currentToken.Value[1 : len(p.currentToken.Value)-1]}}
 	case p.currentToken.TokenID == IntLiteralToken:
 		parsedInt, err := strconv.Atoi(p.currentToken.Value)
 		if err != nil {
-			return nil, err // Should not fail if the parser is setup correctly
+			return nil, err // Should not fail if the parser is set up correctly
 		}
-		key = &Key{Literal: &ASTIntLiteral{IntValue: parsedInt}}
+		key = &Key{Literal: &IntLiteral{IntValue: parsedInt}}
 	case p.currentToken.TokenID == ExpressionStartToken:
 		err = p.advanceToken() // Read past (
 		if err != nil {
@@ -117,7 +117,7 @@ func (p *Parser) parseBracketAccess(expressionToAccess ASTNode) (*MapAccessor, e
 		return nil, err
 	}
 
-	return &MapAccessor{LeftNode: expressionToAccess, RightKey: key}, nil
+	return &BracketAccessor{LeftNode: expressionToAccess, RightKey: *key}, nil
 
 }
 
@@ -139,7 +139,7 @@ func (p *Parser) parseIdentifier() (*Identifier, error) {
 
 // ParseExpression is the correct entrypoint for parsing an expression.
 // It advances to the first token, and parses the expression.
-func (p *Parser) ParseExpression() (ASTNode, error) {
+func (p *Parser) ParseExpression() (Node, error) {
 	err := p.advanceToken()
 	if err != nil {
 		return nil, err
@@ -153,8 +153,8 @@ func (p *Parser) ParseExpression() (ASTNode, error) {
 	return node, err
 }
 
-// parseSubExpression parses all of the dot notations and map accesses.
-func (p *Parser) parseSubExpression() (ASTNode, error) {
+// parseSubExpression parses all the dot notations and map accesses.
+func (p *Parser) parseSubExpression() (Node, error) {
 	supportedTokens := []TokenID{RootAccessToken, CurrentObjectAccessToken, IdentifierToken}
 	// The first identifier should always be the root identifier, $
 	if p.currentToken == nil || !sliceContains(supportedTokens, p.currentToken.TokenID) {
@@ -167,7 +167,7 @@ func (p *Parser) parseSubExpression() (ASTNode, error) {
 		p.atRoot = false // No longer allow $
 	}
 
-	var parsed ASTNode = &Identifier{IdentifierName: p.currentToken.Value}
+	var parsed Node = &Identifier{IdentifierName: p.currentToken.Value}
 	err := p.advanceToken()
 	if err != nil {
 		return nil, err
@@ -189,7 +189,7 @@ func (p *Parser) parseSubExpression() (ASTNode, error) {
 			if err != nil {
 				return nil, err
 			}
-			parsed = &DotNotation{LeftAccessableNode: parsed, RightAccessIdentifier: accessingIdentifier}
+			parsed = &DotNotation{LeftAccessibleNode: parsed, RightAccessIdentifier: accessingIdentifier}
 		case p.currentToken.TokenID == BracketAccessDelimiterStartToken:
 			// Bracket notation
 			parsedMapAccess, err := p.parseBracketAccess(parsed)

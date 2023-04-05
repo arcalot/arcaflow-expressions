@@ -1,17 +1,17 @@
 package ast
 
-// WalkAST walks the AST in-order.
-func WalkAST(
-	ast ASTNode,
-	beforeNode func(node ASTNode) error,
-	onNode func(node ASTNode) error,
-	afterNode func(node ASTNode) error,
+// Walk walks the  in-order.
+func Walk(
+	ast Node,
+	beforeNode func(node Node) error,
+	onNode func(node Node) error,
+	afterNode func(node Node) error,
 ) error {
 	if err := beforeNode(ast); err != nil {
 		return err
 	}
 	if left := ast.Left(); left != nil {
-		if err := WalkAST(left, beforeNode, onNode, afterNode); err != nil {
+		if err := Walk(left, beforeNode, onNode, afterNode); err != nil {
 			return err
 		}
 	}
@@ -19,7 +19,7 @@ func WalkAST(
 		return err
 	}
 	if right := ast.Right(); right != nil {
-		if err := WalkAST(right, beforeNode, onNode, afterNode); err != nil {
+		if err := Walk(right, beforeNode, onNode, afterNode); err != nil {
 			return err
 		}
 	}
