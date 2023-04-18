@@ -14,6 +14,7 @@ type dependencyContext struct {
 	rootType        schema.Type
 	rootPath        *PathTree
 	workflowContext map[string][]byte
+	deep            bool
 }
 
 // dependencies evaluates an AST node for possible dependencies. It adds items to the specified path tree and returns
@@ -97,7 +98,10 @@ func (c *dependencyContext) bracketAccessorDependencies(
 		case schema.TypeIDList:
 			return c.bracketSubExprListDependencies(keyType, leftType, leftPath)
 		case schema.TypeIDAny:
-			return schema.NewAnySchema(), leftPath, nil
+			if !c.deep {
+				return schema.NewAnySchema(), leftPath, nil
+			}
+			return c.bracketSubExprListDependencies(keyType, leftType, leftPath)
 		default:
 			// We don't support subexpressions to pick a property on an object type since that would result in
 			// unpredictable behavior and runtime errors. Furthermore, we would not be able to perform type

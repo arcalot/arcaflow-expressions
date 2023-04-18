@@ -26,6 +26,13 @@ func New(expressionString string) (Expression, error) {
 
 // Expression is an interface describing how expressions should behave.
 type Expression interface {
+	// InferSourceType takes an expression and a known schema and tries to infer the "any" types in the source if not
+	// known.
+	InferSourceType(
+		resultType schema.Type,
+		knownSchema schema.Type,
+		workflowContext map[string][]byte,
+	) (schema.Type, error)
 	// Type evaluates the expression and evaluates the type on the specified schema.
 	Type(schema schema.Scope, workflowContext map[string][]byte) (schema.Type, error)
 	// Dependencies traverses the passed scope and evaluates the items this expression depends on. This is useful to
