@@ -11,7 +11,7 @@ import (
 // dependencyContext holds the root data for a dependency evaluation in an expression. This is useful so that we
 // don't need to pass the root type, path, and workflow context along with each function call.
 type dependencyContext struct {
-	rootType        schema.Scope
+	rootType        schema.Type
 	rootPath        *PathTree
 	workflowContext map[string][]byte
 }
@@ -95,7 +95,9 @@ func (c *dependencyContext) bracketAccessorDependencies(
 		case schema.TypeIDMap:
 			return c.bracketSubExprMapDependencies(keyType, leftType, leftPath)
 		case schema.TypeIDList:
-			return c.bracketSubExprListDependencies(keyType, leftType, path)
+			return c.bracketSubExprListDependencies(keyType, leftType, leftPath)
+		case schema.TypeIDAny:
+			return schema.NewAnySchema(), leftPath, nil
 		default:
 			// We don't support subexpressions to pick a property on an object type since that would result in
 			// unpredictable behavior and runtime errors. Furthermore, we would not be able to perform type
@@ -130,8 +132,11 @@ func (c *dependencyContext) bracketSubExprMapDependencies(
 	return mapType.Values(), pathItem, nil
 }
 
+// bracketSubExprAnyDependencies is used to resolve dependencies when a bracket accessor has a subexpression,
+// with the left type being an any type.
+
 // bracketSubExprListDependencies is used to resolve dependencies when a bracket accessor has a subexpression,
-// with the left type being a list. So format `list[index]`
+// with the left type being a list.
 func (c *dependencyContext) bracketSubExprListDependencies(
 	keyType schema.Type,
 	leftType schema.Type,
@@ -237,6 +242,13 @@ func dependenciesBracketKey(currentType schema.Type, key any, path *PathTree) (s
 		}
 		path.Subtrees = append(path.Subtrees, pathItem)
 		return property.Type(), pathItem, nil
+	case schema.TypeIDAny:
+		pathItem := &PathTree{
+			PathItem: key,
+			Subtrees: nil,
+		}
+		path.Subtrees = append(path.Subtrees, pathItem)
+		return currentType, pathItem, nil
 	default:
 		return nil, nil, fmt.Errorf("cannot evaluate expression identifier %s on data type %s", key, currentType.TypeID())
 	}
