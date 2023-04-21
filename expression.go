@@ -30,7 +30,7 @@ type Expression interface {
 	Type(schema schema.Scope, workflowContext map[string][]byte) (schema.Type, error)
 	// Dependencies traverses the passed scope and evaluates the items this expression depends on. This is useful to
 	// construct a dependency tree based on expressions.
-	Dependencies(schema schema.Scope, workflowContext map[string][]byte) ([]Path, error)
+	Dependencies(schema schema.Type, workflowContext map[string][]byte) ([]Path, error)
 	// Evaluate evaluates the expression on the given data set regardless of any
 	// schema. The caller is responsible for validating the expected schema.
 	Evaluate(data any, workflowContext map[string][]byte) (any, error)
@@ -65,7 +65,7 @@ func (e expression) Type(scope schema.Scope, workflowContext map[string][]byte) 
 	return result, nil
 }
 
-func (e expression) Dependencies(scope schema.Scope, workflowContext map[string][]byte) ([]Path, error) {
+func (e expression) Dependencies(scope schema.Type, workflowContext map[string][]byte) ([]Path, error) {
 	tree := &PathTree{
 		PathItem: "$",
 		Subtrees: nil,
