@@ -132,9 +132,6 @@ func (c *dependencyContext) bracketSubExprMapDependencies(
 	return mapType.Values(), pathItem, nil
 }
 
-// bracketSubExprAnyDependencies is used to resolve dependencies when a bracket accessor has a subexpression,
-// with the left type being an any type.
-
 // bracketSubExprListDependencies is used to resolve dependencies when a bracket accessor has a subexpression,
 // with the left type being a list.
 func (c *dependencyContext) bracketSubExprListDependencies(
