@@ -1,8 +1,5 @@
-go.arcalot.io/assert v1.3.0 h1:+uQex4s9gezATpTyFxUY5dlAcrwI1Me5fSmdcydGHho=
-go.arcalot.io/assert v1.3.0/go.mod h1:Xy3ScX0p9IMY89gdsgexOKxnmDr0nGHG9dV7p8Uxg7w=
-go.flow.arcalot.io/pluginsdk v0.1.1-0.20230317070134-462e49b0ffd0 h1:C4qczXIZrHfQ7LECIMze0SXuhKbcyswlxVUzRQWh8JM=
-go.flow.arcalot.io/pluginsdk v0.1.1-0.20230317070134-462e49b0ffd0/go.mod h1:ceY4HhUbnhZyQa3C7lXu25TNVCbsWGuYZapsV5RuIrk=
-go.flow.arcalot.io/pluginsdk v0.1.1 h1:dFyjaNEW/tuosHpYCb9BJLWIm5ohvXmtv6GqJn8yekE=
-go.flow.arcalot.io/pluginsdk v0.1.1/go.mod h1:ceY4HhUbnhZyQa3C7lXu25TNVCbsWGuYZapsV5RuIrk=
-go.flow.arcalot.io/pluginsdk v0.1.2 h1:zYtSlQCdHZ2fMF24ueboZpHp28k6TONOIhh1GJ49CGk=
-go.flow.arcalot.io/pluginsdk v0.1.2/go.mod h1:ceY4HhUbnhZyQa3C7lXu25TNVCbsWGuYZapsV5RuIrk=
+go.arcalot.io/assert v1.6.0 h1:iKA8SZZ1MRblMX5QAwwY5RbpR+VNyp//4IU7vo08Xu0=
+go.arcalot.io/assert v1.6.0/go.mod h1:Xy3ScX0p9IMY89gdsgexOKxnmDr0nGHG9dV7p8Uxg7w=
+go.flow.arcalot.io/pluginsdk v0.4.1 h1:sooyHRNCH/EIQJe+842qZJAgXHuffclFbc3hPMgbhCc=
+go.flow.arcalot.io/pluginsdk v0.4.1/go.mod h1:8Gp8Q0Eo0s+2I4nNl3uQ95jPi2zFKEX7JqyjhmK7BiI=
+gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
