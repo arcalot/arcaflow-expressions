@@ -13,6 +13,7 @@ func TestDependencyResolution(t *testing.T) {
 		"scope": testScope,
 		"any":   schema.NewAnySchema(),
 	}
+	// All of these can apply to multiple types, so we'll iterate over the possibilities.
 	for name, schemaType := range scopes {
 		name := name
 		schemaType := schemaType
@@ -53,7 +54,7 @@ func TestDependencyResolution(t *testing.T) {
 				assert.Equals(t, path[0].String(), "$.faz.foo")
 			})
 			t.Run("subexpression-invalid", func(t *testing.T) {
-				expr, err := expressions.New("$.foo[($.faz.foo)]")
+				expr, err := expressions.New("$.foo[$.faz.foo]")
 				assert.NoError(t, err)
 				path, err := expr.Dependencies(schemaType, nil)
 				if name == "scope" {
@@ -66,7 +67,7 @@ func TestDependencyResolution(t *testing.T) {
 			})
 
 			t.Run("subexpression", func(t *testing.T) {
-				expr, err := expressions.New("$.faz[($.foo.bar)]")
+				expr, err := expressions.New("$.faz[$.foo.bar]")
 				assert.NoError(t, err)
 				path, err := expr.Dependencies(schemaType, nil)
 				if name == "scope" {
@@ -83,5 +84,12 @@ func TestDependencyResolution(t *testing.T) {
 			})
 		})
 	}
+}
 
+func TestLiteralDependencyResolution(t *testing.T) {
+	expr, err := expressions.New(`"test"`)
+	assert.NoError(t, err)
+	path, err := expr.Dependencies(testScope, nil)
+	assert.NoError(t, err)
+	assert.Equals(t, len(path), 1) // Does not depend on anything.
 }

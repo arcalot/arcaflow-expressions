@@ -10,7 +10,7 @@ import (
 var filename = "example.go"
 
 func TestTokenizer(t *testing.T) {
-	input := `$.steps.read_kubeconfig.output["success"].credentials`
+	input := `$.steps.read_kubeconfig.output["success"].credentials[f(1,2)]`
 	tokenizer := initTokenizer(input, filename)
 	expectedValue := []TokenValue{
 		{"$", RootAccessToken, filename, 1, 1},
@@ -25,6 +25,14 @@ func TestTokenizer(t *testing.T) {
 		{"]", BracketAccessDelimiterEndToken, filename, 1, 41},
 		{".", DotObjectAccessToken, filename, 1, 42},
 		{"credentials", IdentifierToken, filename, 1, 43},
+		{"[", BracketAccessDelimiterStartToken, filename, 1, 54},
+		{"f", IdentifierToken, filename, 1, 55},
+		{"(", ArgListStartToken, filename, 1, 56},
+		{"1", IntLiteralToken, filename, 1, 57},
+		{",", ListSeparatorToken, filename, 1, 58},
+		{"2", IntLiteralToken, filename, 1, 59},
+		{")", ArgListEndToken, filename, 1, 60},
+		{"]", BracketAccessDelimiterEndToken, filename, 1, 61},
 	}
 	for _, expected := range expectedValue {
 		assert.Equals(t, tokenizer.hasNextToken(), true)

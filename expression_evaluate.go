@@ -18,17 +18,20 @@ type evaluateContext struct {
 // to the root data to evaluate subexpressions, as well as the workflow context to pull in additional files. It will
 // return the evaluated data.
 func (c evaluateContext) evaluate(node ast.Node, data any) (any, error) {
+	// First checks for any literal type, since it's generic.
+	if literal, isLiteral := node.(ast.ValueLiteral); isLiteral {
+		return literal.Value(), nil
+	}
+	// Checks non-generic types.
 	switch n := node.(type) {
 	case *ast.DotNotation:
 		return c.evaluateDotNotation(n, data)
 	case *ast.BracketAccessor:
 		return c.evaluateBracketAccessor(n, data)
-	case *ast.Key:
-		return c.evaluateKey(n, data)
 	case *ast.Identifier:
 		return c.evaluateIdentifier(n, data)
 	default:
-		return nil, fmt.Errorf("unsupported  node type: %T", n)
+		return nil, fmt.Errorf("unsupported node type: %T", n)
 	}
 }
 
@@ -55,26 +58,11 @@ func (c evaluateContext) evaluateBracketAccessor(node *ast.BracketAccessor, data
 		return nil, err
 	}
 	// Next, evaluates the item inside the brackets. Can be any valid literal or something that evaluates into a value.
-	mapKey, err := c.evaluate(&node.RightKey, leftResult)
+	mapKey, err := c.evaluate(node.RightExpression, leftResult)
 	if err != nil {
 		return nil, err
 	}
 	return evaluateMapAccess(data, mapKey)
-}
-
-// Evaluates a key, which is the item looked up in a map access
-//
-// A map access has the form `item[itemkey]`, and the key can be either a literal (e.g. string) or a
-// subexpression, which needs to be evaluated in its own right.
-func (c evaluateContext) evaluateKey(node *ast.Key, data any) (any, error) {
-	switch {
-	case node.Literal != nil:
-		return node.Literal.Value(), nil
-	case node.SubExpression != nil:
-		return c.evaluate(node.SubExpression, data)
-	default:
-		return nil, fmt.Errorf("bug: neither literal, nor subexpression are set on key")
-	}
 }
 
 // Evaluates an identifier

@@ -42,14 +42,14 @@ func TestTypeEvaluation(t *testing.T) {
 	})
 
 	t.Run("subexpression-invalid", func(t *testing.T) {
-		expr, err := expressions.New("$.foo[($.faz.foo)]")
+		expr, err := expressions.New("$.foo[$.faz.foo]")
 		assert.NoError(t, err)
 		_, err = expr.Type(testScope, nil)
 		assert.Error(t, err)
 	})
 
 	t.Run("subexpression", func(t *testing.T) {
-		expr, err := expressions.New("$.faz[($.foo.bar)]")
+		expr, err := expressions.New("$.faz[$.foo.bar]")
 		assert.NoError(t, err)
 		resultType, err := expr.Type(testScope, nil)
 		assert.NoError(t, err)

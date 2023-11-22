@@ -67,18 +67,18 @@ func TestEvaluate(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			expr, err := expressions.New(testCase.expr)
 			if testCase.parseError && err == nil {
-				t.Fatalf("No parse error returned")
+				t.Fatalf("No parse error returned for test %s", name)
 			}
 			if !testCase.parseError && err != nil {
-				t.Fatalf("Unexpected parse error returned (%v)", err)
+				t.Fatalf("Unexpected parse error returned for test %s (%v)", name, err)
 			}
 			result, err := expr.Evaluate(testCase.data, nil)
 			if testCase.evalError && err == nil {
-				t.Fatalf("No eval error returned")
+				t.Fatalf("No eval error returned for test %s", name)
 			}
 			if !testCase.evalError {
 				if err != nil {
-					t.Fatalf("Unexpected eval error returned (%v)", err)
+					t.Fatalf("Unexpected eval error returned for test %s (%v)", name, err)
 				}
 				assert.Equals(t, result, testCase.expectedResult)
 			}

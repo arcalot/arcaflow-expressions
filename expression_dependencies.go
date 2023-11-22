@@ -24,6 +24,10 @@ type dependencyContext struct {
 // - node: The root node of the tree of sub-tree to evaluate.
 // - currentType: The schema, which specifies the values and their types that can be referenced.
 // - path: A reference to the PathTree, which gets added to with the dependencies.
+// Returns:
+// - schema.Type: The schema for the value.
+// - *PathTree, the path to the value it depends on in the input schema, or nil if it's a literal.
+// - error: An error, if encountered.
 func (c *dependencyContext) dependencies(
 	node ast.Node,
 	currentType schema.Type,
@@ -34,11 +38,12 @@ func (c *dependencyContext) dependencies(
 		return c.dotNotationDependencies(n, currentType, path)
 	case *ast.BracketAccessor:
 		return c.bracketAccessorDependencies(n, currentType, path)
-	case *ast.Key:
-		// Keys should only be found in map accessors, which is already handled above, so this should never happen.
-		return nil, nil, fmt.Errorf("bug: reached key outside a map accessor")
 	case *ast.Identifier:
 		return c.identifierDependencies(n, currentType, path)
+	case *ast.StringLiteral:
+		return schema.NewStringSchema(nil, nil, nil), nil, nil
+	case *ast.IntLiteral:
+		return schema.NewIntSchema(nil, nil, nil), nil, nil
 	default:
 		return nil, nil, fmt.Errorf("unsupported AST node type: %T", n)
 	}
@@ -78,16 +83,16 @@ func (c *dependencyContext) bracketAccessorDependencies(
 		return nil, nil, err
 	}
 
-	switch {
-	case node.RightKey.Literal != nil:
-		return dependenciesBracketKey(leftType, node.RightKey.Literal.Value(), leftPath)
-	case node.RightKey.SubExpression != nil:
+	if literal, ok := node.RightExpression.(ast.ValueLiteral); ok {
+		return dependenciesBracketKey(leftType, literal.Value(), leftPath)
+	} else {
+
 		// If we have a subexpression, we need to add all possible keys to the dependency map since we can't
 		// determine the correct one to extract. This could be further refined by evaluating the type. If it is an
 		// enum, we could potentially limit the number of dependencies.
 
 		// Evaluate the subexpression
-		keyType, _, err := c.dependencies(node.RightKey.SubExpression, c.rootType, c.rootPath)
+		keyType, _, err := c.dependencies(node.RightExpression, c.rootType, c.rootPath)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -104,9 +109,6 @@ func (c *dependencyContext) bracketAccessorDependencies(
 			// evaluation.
 			return nil, nil, fmt.Errorf("subexpressions are only supported on map and list types, %s given", currentType.TypeID())
 		}
-
-	default:
-		return nil, nil, fmt.Errorf("bug: neither literal, nor subexpression are set on key")
 	}
 }
 
