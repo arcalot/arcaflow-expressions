@@ -97,7 +97,7 @@ func (p *Parser) parseIntLiteral() (*IntLiteral, error) {
 	if err != nil {
 		return nil, err // Should not fail if the parser is set up correctly
 	}
-	literal := &IntLiteral{IntValue: parsedInt}
+	literal := &IntLiteral{IntValue: int64(parsedInt)}
 	err = p.advanceToken()
 	if err != nil {
 		return nil, err

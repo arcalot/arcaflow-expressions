@@ -2,6 +2,7 @@ package expressions
 
 import (
 	"fmt"
+	"go.flow.arcalot.io/pluginsdk/schema"
 	"reflect"
 
 	"go.flow.arcalot.io/expressions/internal/ast"
@@ -11,6 +12,7 @@ import (
 // don't need to pass the data, root data, and workflow context along with each function call.
 type evaluateContext struct {
 	rootData        any
+	functions       map[string]schema.CallableFunction
 	workflowContext map[string][]byte
 }
 
@@ -30,9 +32,49 @@ func (c evaluateContext) evaluate(node ast.Node, data any) (any, error) {
 		return c.evaluateBracketAccessor(n, data)
 	case *ast.Identifier:
 		return c.evaluateIdentifier(n, data)
+	case *ast.FunctionCall:
+		return c.evaluateFuncCall(n, data)
 	default:
 		return nil, fmt.Errorf("unsupported node type: %T", n)
 	}
+}
+
+func (c evaluateContext) evaluateFuncCall(node *ast.FunctionCall, data any) (any, error) {
+	funcID := node.FuncIdentifier
+	functionSchema, found := c.functions[funcID.String()]
+	if found {
+		// Evaluate args
+		evaluatedArgs, err := c.evaluateParameters(node.ParameterInputs, data)
+		if err != nil {
+			return nil, err
+		}
+		expectedArgs := len(functionSchema.Parameters())
+		gotArgs := len(evaluatedArgs)
+		if gotArgs != expectedArgs {
+			return nil, fmt.Errorf(
+				"function '%s' called with incorrect number of arguments. Expected %d, got %d",
+				funcID, expectedArgs, gotArgs)
+		}
+		return functionSchema.Call(evaluatedArgs)
+	} else {
+		return nil, fmt.Errorf("function with ID '%s' not found", funcID)
+	}
+}
+
+func (c evaluateContext) evaluateParameters(node *ast.ArgumentList, _ any) ([]any, error) {
+	// A value for each argument
+	result := make([]any, node.NumChildren())
+	for i := 0; i < node.NumChildren(); i++ {
+		arg, err := node.GetChild(i)
+		if err != nil {
+			return nil, err
+		}
+		result[i], err = c.evaluate(arg, c.rootData)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
 }
 
 // Evaluates a DotNotation node.
@@ -96,6 +138,8 @@ func evaluateMapAccess(data any, mapKey any) (any, error) {
 		switch t := mapKey.(type) {
 		case int:
 			sliceIndex = t
+		case int64:
+			sliceIndex = int(t)
 		default:
 			return nil, fmt.Errorf("unsupported map key type: %T", mapKey)
 		}

@@ -34,6 +34,7 @@ func ExampleExpression_Type() {
 	t, err := expr.Type(
 		scopeForType,
 		nil,
+		nil,
 	)
 	if err != nil {
 		panic(err)

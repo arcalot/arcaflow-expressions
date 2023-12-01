@@ -44,10 +44,20 @@ func (c *dependencyContext) dependencies(
 		return schema.NewStringSchema(nil, nil, nil), nil, nil
 	case *ast.IntLiteral:
 		return schema.NewIntSchema(nil, nil, nil), nil, nil
+	//case *ast.FunctionCall:
+	//	return c.functionDependencies(n, currentType, path)
 	default:
 		return nil, nil, fmt.Errorf("unsupported AST node type: %T", n)
 	}
 }
+
+/*func (c *dependencyContext) functionDependencies(
+	node *ast.FunctionCall,
+	currentType schema.Type,
+	path *PathTree,
+) (schema.Type, *PathTree, error) {
+
+}*/
 
 // dotNotationDependencies resolves dependencies of a DotNotation node.
 //

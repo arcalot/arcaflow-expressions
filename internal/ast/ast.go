@@ -54,12 +54,12 @@ func (l *StringLiteral) Value() interface{} {
 // IntLiteral represents an integer literal value in the abstract syntax
 // tree.
 type IntLiteral struct {
-	IntValue int
+	IntValue int64
 }
 
 // String returns a string representation of the integer contained.
 func (l *IntLiteral) String() string {
-	return strconv.Itoa(l.IntValue)
+	return strconv.Itoa(int(l.IntValue))
 }
 
 // Value returns the integer contained.

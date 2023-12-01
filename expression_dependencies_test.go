@@ -21,7 +21,7 @@ func TestDependencyResolution(t *testing.T) {
 			t.Run("object", func(t *testing.T) {
 				expr, err := expressions.New("$.foo.bar")
 				assert.NoError(t, err)
-				path, err := expr.Dependencies(schemaType, nil)
+				path, err := expr.Dependencies(schemaType, nil, nil)
 				assert.NoError(t, err)
 				assert.Equals(t, len(path), 1)
 				assert.Equals(t, path[0].String(), "$.foo.bar")
@@ -30,7 +30,7 @@ func TestDependencyResolution(t *testing.T) {
 			t.Run("map-accessor", func(t *testing.T) {
 				expr, err := expressions.New("$[\"foo\"].bar")
 				assert.NoError(t, err)
-				path, err := expr.Dependencies(schemaType, nil)
+				path, err := expr.Dependencies(schemaType, nil, nil)
 				assert.NoError(t, err)
 				assert.Equals(t, len(path), 1)
 				assert.Equals(t, path[0].String(), "$.foo.bar")
@@ -39,7 +39,7 @@ func TestDependencyResolution(t *testing.T) {
 			t.Run("map", func(t *testing.T) {
 				expr, err := expressions.New("$.faz")
 				assert.NoError(t, err)
-				path, err := expr.Dependencies(schemaType, nil)
+				path, err := expr.Dependencies(schemaType, nil, nil)
 				assert.NoError(t, err)
 				assert.Equals(t, len(path), 1)
 				assert.Equals(t, path[0].String(), "$.faz")
@@ -48,7 +48,7 @@ func TestDependencyResolution(t *testing.T) {
 			t.Run("map-subkey", func(t *testing.T) {
 				expr, err := expressions.New("$.faz.foo")
 				assert.NoError(t, err)
-				path, err := expr.Dependencies(schemaType, nil)
+				path, err := expr.Dependencies(schemaType, nil, nil)
 				assert.NoError(t, err)
 				assert.Equals(t, len(path), 1)
 				assert.Equals(t, path[0].String(), "$.faz.foo")
@@ -56,7 +56,7 @@ func TestDependencyResolution(t *testing.T) {
 			t.Run("subexpression-invalid", func(t *testing.T) {
 				expr, err := expressions.New("$.foo[$.faz.foo]")
 				assert.NoError(t, err)
-				path, err := expr.Dependencies(schemaType, nil)
+				path, err := expr.Dependencies(schemaType, nil, nil)
 				if name == "scope" {
 					assert.Error(t, err)
 				} else {
@@ -69,7 +69,7 @@ func TestDependencyResolution(t *testing.T) {
 			t.Run("subexpression", func(t *testing.T) {
 				expr, err := expressions.New("$.faz[$.foo.bar]")
 				assert.NoError(t, err)
-				path, err := expr.Dependencies(schemaType, nil)
+				path, err := expr.Dependencies(schemaType, nil, nil)
 				if name == "scope" {
 					assert.NoError(t, err)
 					assert.Equals(t, len(path), 2)
@@ -89,7 +89,7 @@ func TestDependencyResolution(t *testing.T) {
 func TestLiteralDependencyResolution(t *testing.T) {
 	expr, err := expressions.New(`"test"`)
 	assert.NoError(t, err)
-	path, err := expr.Dependencies(testScope, nil)
+	path, err := expr.Dependencies(testScope, nil, nil)
 	assert.NoError(t, err)
 	assert.Equals(t, len(path), 1) // Does not depend on anything.
 }

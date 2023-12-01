@@ -34,6 +34,7 @@ func ExampleExpression_Dependencies() {
 	dependencyList, err := expr.Dependencies(
 		myScope,
 		nil,
+		nil,
 	)
 	if err != nil {
 		panic(err)
