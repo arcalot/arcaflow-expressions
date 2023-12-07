@@ -82,6 +82,9 @@ func (c *dependencyContext) functionDependencies(
 			return nil, nil, err
 		}
 		argType, argDependencies, err := c.dependencies(arg, c.rootType, c.rootPath)
+		if err != nil {
+			return nil, nil, err
+		}
 		// Validate type compatibility with function's schema
 		paramType := paramTypes[i]
 		if err := paramType.ValidateCompatibility(argType); err != nil {

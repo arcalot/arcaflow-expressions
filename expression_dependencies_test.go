@@ -100,6 +100,7 @@ func TestFunctionDependencyResolution_void(t *testing.T) {
 	assert.NoError(t, err)
 
 	expr, err := expressions.New(`voidFunc()`)
+	assert.NoError(t, err)
 	dependencyTree, err := expr.Dependencies(testScope, map[string]schema.Function{"voidFunc": voidFunc}, nil)
 	assert.NoError(t, err)
 	assert.Equals(t, len(dependencyTree), 1)
@@ -108,6 +109,7 @@ func TestFunctionDependencyResolution_void(t *testing.T) {
 
 func TestFunctionDependencyResolution_error_unknown_func(t *testing.T) {
 	expr, err := expressions.New(`missing()`)
+	assert.NoError(t, err)
 	_, err = expr.Dependencies(testScope, map[string]schema.Function{}, nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "could not find function")
@@ -125,12 +127,14 @@ func TestFunctionDependencyResolution_singleParam(t *testing.T) {
 	funcMap := map[string]schema.Function{"intIn": intInFunc}
 
 	expr, err := expressions.New(`intIn(5)`)
+	assert.NoError(t, err)
 	dependencyTree, err := expr.Dependencies(testScope, funcMap, nil)
 	assert.NoError(t, err)
 	assert.Equals(t, len(dependencyTree), 1)
 	assert.Equals(t, dependencyTree[0].String(), "$")
 
 	expr, err = expressions.New(`intIn($.simple_int)`)
+	assert.NoError(t, err)
 	dependencyTree, err = expr.Dependencies(testScope, funcMap, nil)
 	assert.NoError(t, err)
 	assert.Equals(t, len(dependencyTree), 1)
@@ -153,6 +157,7 @@ func TestFunctionDependencyResolution_multiParam(t *testing.T) {
 	funcMap := map[string]schema.Function{"test": testFunc}
 
 	expr, err := expressions.New(`test(5, $.simple_int, $.simple_str)`)
+	assert.NoError(t, err)
 	dependencyTree, err := expr.Dependencies(testScope, funcMap, nil)
 	assert.NoError(t, err)
 	assert.Equals(t, len(dependencyTree), 2)
@@ -172,6 +177,7 @@ func TestFunctionDependencyResolution_compoundFunctions(t *testing.T) {
 	funcMap := map[string]schema.Function{"intInOut": intInOutFunc}
 
 	expr, err := expressions.New(`intInOut(intInOut($.simple_int))`)
+	assert.NoError(t, err)
 	dependencyTree, err := expr.Dependencies(testScope, funcMap, nil)
 	assert.NoError(t, err)
 	assert.Equals(t, len(dependencyTree), 1)
@@ -190,6 +196,7 @@ func TestFunctionDependencyResolution_error_wrongType(t *testing.T) {
 	funcMap := map[string]schema.Function{"intIn": intInFunc}
 
 	expr, err := expressions.New(`intIn("wrongType")`)
+	assert.NoError(t, err)
 	_, err = expr.Dependencies(testScope, funcMap, nil)
 	assert.Error(t, err)
 	// Validate that it detected a type problem
@@ -210,6 +217,7 @@ func TestFunctionDependencyResolution_error_wrongArgCount(t *testing.T) {
 	funcMap := map[string]schema.Function{"intIn": intInFunc}
 
 	expr, err := expressions.New(`intIn(5, 5)`)
+	assert.NoError(t, err)
 	_, err = expr.Dependencies(testScope, funcMap, nil)
 	assert.Error(t, err)
 	// Validate that it detected a type problem
@@ -257,24 +265,28 @@ func TestFunctionDependencyResolution_dynamicTyping(t *testing.T) {
 	}
 	// Test identity returning int when given int
 	expr, err := expressions.New(`intIn(identity(1))`)
+	assert.NoError(t, err)
 	dependencyTree, err := expr.Dependencies(testScope, funcMap, nil)
 	assert.NoError(t, err)
 	assert.Equals(t, len(dependencyTree), 1)
 	assert.Equals(t, dependencyTree[0].String(), "$")
 	// Test identity returning str when given str
 	expr, err = expressions.New(`strIn(identity("test"))`)
+	assert.NoError(t, err)
 	dependencyTree, err = expr.Dependencies(testScope, funcMap, nil)
 	assert.NoError(t, err)
 	assert.Equals(t, len(dependencyTree), 1)
 	assert.Equals(t, dependencyTree[0].String(), "$")
 	// Test type mismatch
 	expr, err = expressions.New(`strIn(identity(1))`)
-	dependencyTree, err = expr.Dependencies(testScope, funcMap, nil)
+	assert.NoError(t, err)
+	_, err = expr.Dependencies(testScope, funcMap, nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported data type")
 	// Second test type mismatch
 	expr, err = expressions.New(`intIn(identity("test"))`)
-	dependencyTree, err = expr.Dependencies(testScope, funcMap, nil)
+	assert.NoError(t, err)
+	_, err = expr.Dependencies(testScope, funcMap, nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported data type")
 }

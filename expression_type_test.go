@@ -73,6 +73,7 @@ func TestFunctionTypeResolution_void(t *testing.T) {
 	assert.NoError(t, err)
 
 	expr, err := expressions.New(`voidFunc()`)
+	assert.NoError(t, err)
 	typeResult, err := expr.Type(testScope, map[string]schema.Function{"voidFunc": voidFunc}, nil)
 	assert.NoError(t, err)
 	assert.Nil(t, typeResult)
@@ -90,6 +91,7 @@ func TestFunctionTypeResolution_compoundFunctions(t *testing.T) {
 	funcMap := map[string]schema.Function{"intInOut": intInOutFunc}
 
 	expr, err := expressions.New(`intInOut(intInOut($.simple_int))`)
+	assert.NoError(t, err)
 	typeResult, err := expr.Type(testScope, funcMap, nil)
 	assert.NoError(t, err)
 	assert.Equals[schema.Type](t, typeResult, schema.NewIntSchema(nil, nil, nil))
@@ -116,22 +118,26 @@ func TestFunctionTypeResolution_dynamicTyping(t *testing.T) {
 	}
 	// Test identity returning int when given int
 	expr, err := expressions.New(`identity(1)`)
+	assert.NoError(t, err)
 	typeResult, err := expr.Type(testScope, funcMap, nil)
 	assert.NoError(t, err)
 	assert.Equals[schema.Type](t, typeResult, schema.NewIntSchema(nil, nil, nil))
 	// Test identity returning str when given str
 	expr, err = expressions.New(`identity("test")`)
+	assert.NoError(t, err)
 	typeResult, err = expr.Type(testScope, funcMap, nil)
 	assert.NoError(t, err)
 	assert.Equals[schema.Type](t, typeResult, schema.NewStringSchema(nil, nil, nil))
 	// Same but with a reference instead of a literal
 	// Test identity returning int when given int
 	expr, err = expressions.New(`identity($.simple_int)`)
+	assert.NoError(t, err)
 	typeResult, err = expr.Type(testScope, funcMap, nil)
 	assert.NoError(t, err)
 	assert.Equals[schema.Type](t, typeResult, schema.NewIntSchema(nil, nil, nil))
 	// Test identity returning str when given str
 	expr, err = expressions.New(`identity($.simple_str)`)
+	assert.NoError(t, err)
 	typeResult, err = expr.Type(testScope, funcMap, nil)
 	assert.NoError(t, err)
 	assert.Equals[schema.Type](t, typeResult, schema.NewStringSchema(nil, nil, nil))
@@ -164,6 +170,7 @@ func TestFunctionTypeResolution_advancedDynamicTyping(t *testing.T) {
 	}
 	// Test returning []int when given int
 	expr, err := expressions.New(`toList(1)`)
+	assert.NoError(t, err)
 	typeResult, err := expr.Type(testScope, funcMap, nil)
 	assert.NoError(t, err)
 	assert.Equals[schema.Type](t, typeResult,
@@ -175,6 +182,7 @@ func TestFunctionTypeResolution_advancedDynamicTyping(t *testing.T) {
 	)
 	// Test returning []str when given str
 	expr, err = expressions.New(`toList("test")`)
+	assert.NoError(t, err)
 	typeResult, err = expr.Type(testScope, funcMap, nil)
 	assert.NoError(t, err)
 	assert.Equals[schema.Type](t, typeResult,
@@ -186,6 +194,7 @@ func TestFunctionTypeResolution_advancedDynamicTyping(t *testing.T) {
 	)
 	// Test toList followed by indexing
 	expr, err = expressions.New(`toList("test")[0]`)
+	assert.NoError(t, err)
 	typeResult, err = expr.Type(testScope, funcMap, nil)
 	assert.NoError(t, err)
 	assert.Equals[schema.Type](t, typeResult,

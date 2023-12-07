@@ -10,11 +10,6 @@ import (
 	"go.flow.arcalot.io/expressions"
 )
 
-type multiplyParams struct {
-	a int
-	b int
-}
-
 var voidFunc, voidFuncErr = schema.NewCallableFunction(
 	"test",
 	make([]schema.Type, 0),
