@@ -1,7 +1,9 @@
 package expressions_test
 
 import (
+	"fmt"
 	"go.flow.arcalot.io/pluginsdk/schema"
+	"reflect"
 	"testing"
 
 	"go.arcalot.io/assert"
@@ -50,6 +52,26 @@ var twoIntToIntFunc, twoIntToIntFuncErr = schema.NewCallableFunction(
 	nil,
 	func(a int64, b int64) (int64, error) {
 		return a * b, nil
+	},
+)
+
+var dynamicToListFunc, dynamicToListFuncErr = schema.NewDynamicCallableFunction(
+	"toList",
+	[]schema.Type{schema.NewAnySchema()},
+	nil,
+	func(a any) (any, error) {
+		aVal := reflect.ValueOf(a)
+		result := reflect.MakeSlice(reflect.SliceOf(aVal.Type()), 2, 2)
+		result.Index(0).Set(aVal)
+		result.Index(1).Set(aVal)
+		return result.Interface(), nil
+	},
+	func(inputType []schema.Type) (schema.Type, error) {
+		if len(inputType) == 1 {
+			return schema.NewListSchema(inputType[0], nil, nil), nil
+		} else {
+			return nil, fmt.Errorf("incorrect param count")
+		}
 	},
 )
 
@@ -177,6 +199,30 @@ var testData = map[string]struct {
 		false,
 		int64(50),
 	},
+	"to-list-function-int": {
+		map[string]any{
+			"val": int64(5),
+		},
+		map[string]schema.CallableFunction{
+			"toList": dynamicToListFunc,
+		},
+		`toList($.val)`,
+		false,
+		false,
+		[]int64{5, 5},
+	},
+	"to-list-function-str": {
+		map[string]any{
+			"val": "test",
+		},
+		map[string]schema.CallableFunction{
+			"toList": dynamicToListFunc,
+		},
+		`toList($.val)`,
+		false,
+		false,
+		[]string{"test", "test"},
+	},
 }
 
 func TestEvaluate(t *testing.T) {
@@ -184,6 +230,7 @@ func TestEvaluate(t *testing.T) {
 	assert.NoError(t, strFuncErr)
 	assert.NoError(t, strToStrFuncErr)
 	assert.NoError(t, twoIntToIntFuncErr)
+	assert.NoError(t, dynamicToListFuncErr)
 
 	for name, tc := range testData {
 		testCase := tc

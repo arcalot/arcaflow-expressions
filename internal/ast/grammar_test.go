@@ -54,9 +54,9 @@ func TestMapAccessParser(t *testing.T) {
 	mapResult, err := p.parseBracketAccess(&Identifier{IdentifierName: "a"})
 
 	assert.NoError(t, err)
-	assert.Equals[Node](t, mapResult.RightExpression, &IntLiteral{IntValue: 0})
+	assert.Equals[Node](t, mapResult.RightExpression, &IntLiteral{IntValue: int64(0)})
 	assert.InstanceOf[ValueLiteral](t, mapResult.RightExpression)
-	assert.Equals(t, mapResult.RightExpression.(ValueLiteral).Value(), 0)
+	assert.Equals(t, mapResult.RightExpression.(ValueLiteral).Value().(int64), int64(0))
 
 	mapResult, err = p.parseBracketAccess(&Identifier{IdentifierName: "a"})
 

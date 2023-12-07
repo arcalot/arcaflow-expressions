@@ -14,6 +14,7 @@ type dependencyContext struct {
 	rootType        schema.Type
 	rootPath        *PathTree
 	workflowContext map[string][]byte
+	functions       map[string]schema.Function
 }
 
 // dependencies evaluates an AST node for possible dependencies. It adds items to the specified path tree and returns
@@ -23,7 +24,7 @@ type dependencyContext struct {
 // Arguments:
 // - node: The root node of the tree of sub-tree to evaluate.
 // - currentType: The schema, which specifies the values and their types that can be referenced.
-// - path: A reference to the PathTree, which gets added to with the dependencies.
+// - path: A reference to the PathTree to the current node, which gets added to with the dependencies.
 // Returns:
 // - schema.Type: The schema for the value.
 // - *PathTree, the path to the value it depends on in the input schema, or nil if it's a literal.
@@ -44,20 +45,60 @@ func (c *dependencyContext) dependencies(
 		return schema.NewStringSchema(nil, nil, nil), nil, nil
 	case *ast.IntLiteral:
 		return schema.NewIntSchema(nil, nil, nil), nil, nil
-	//case *ast.FunctionCall:
-	//	return c.functionDependencies(n, currentType, path)
+	case *ast.FunctionCall:
+		return c.functionDependencies(n, currentType, path)
 	default:
 		return nil, nil, fmt.Errorf("unsupported AST node type: %T", n)
 	}
 }
 
-/*func (c *dependencyContext) functionDependencies(
+func (c *dependencyContext) functionDependencies(
 	node *ast.FunctionCall,
-	currentType schema.Type,
-	path *PathTree,
+	_ schema.Type,
+	_ *PathTree,
 ) (schema.Type, *PathTree, error) {
-
-}*/
+	// Get the types and dependencies of all parameters.
+	functionSchema, found := c.functions[node.FuncIdentifier.IdentifierName]
+	if !found {
+		return nil, nil, fmt.Errorf("could not find function '%s'", node.FuncIdentifier.IdentifierName)
+	}
+	paramTypes := functionSchema.Parameters()
+	// Validate param count
+	if node.ParameterInputs.NumChildren() != len(paramTypes) {
+		return nil, nil, fmt.Errorf("invalid call to function '%s'. Expected %d args, got %d args. Function schema: %s",
+			functionSchema.ID(), len(paramTypes), node.ParameterInputs.NumChildren(), functionSchema.String())
+	}
+	// Types need to be saved to validate argument types with parameter types, which are also needed to get the output type.
+	// Dependencies need to also be added to the PathTree
+	newFuncArgsPath := &PathTree{
+		PathItem: node.FuncIdentifier.IdentifierName,
+		Subtrees: nil,
+	}
+	// Save arg types for passing into output function
+	argTypes := make([]schema.Type, 0)
+	for i := 0; i < node.ParameterInputs.NumChildren(); i++ {
+		arg, err := node.ParameterInputs.GetChild(i)
+		if err != nil {
+			return nil, nil, err
+		}
+		argType, argDependencies, err := c.dependencies(arg, c.rootType, c.rootPath)
+		// Validate type compatibility with function's schema
+		paramType := paramTypes[i]
+		if err := paramType.ValidateCompatibility(argType); err != nil {
+			return nil, nil, fmt.Errorf("error while validating arg/param type compatibility for function '%s' at 0-index %d (%w). Function schema: %s",
+				functionSchema.ID(), i, err, functionSchema.String())
+		}
+		argTypes = append(argTypes, argType)
+		// Add dependency to the path tree
+		newFuncArgsPath.Subtrees = append(newFuncArgsPath.Subtrees, argDependencies)
+	}
+	// Now get the type from the function output
+	outputType, err := functionSchema.Output(argTypes)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error while getting return type (%w)", err)
+	}
+	return outputType, newFuncArgsPath, nil
+}
 
 // dotNotationDependencies resolves dependencies of a DotNotation node.
 //
@@ -199,6 +240,7 @@ func dependenciesBracketKey(currentType schema.Type, key any, path *PathTree) (s
 				return nil, nil, fmt.Errorf("cannot use non-integer expression identifier %s on list", key)
 			}
 		case int:
+		case int64:
 			listItem = k
 		default:
 			return nil, nil, fmt.Errorf("bug: invalid key type encountered for map key: %T", key)

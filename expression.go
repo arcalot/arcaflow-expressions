@@ -59,6 +59,7 @@ func (e expression) Type(scope schema.Scope, functions map[string]schema.Functio
 		rootType:        scope,
 		rootPath:        tree,
 		workflowContext: workflowContext,
+		functions:       functions,
 	}
 	result, _, err := d.dependencies(e.ast, scope, tree)
 	if err != nil {
@@ -76,6 +77,7 @@ func (e expression) Dependencies(scope schema.Type, functions map[string]schema.
 		rootType:        scope,
 		rootPath:        tree,
 		workflowContext: workflowContext,
+		functions:       functions,
 	}
 	_, _, err := d.dependencies(e.ast, scope, tree)
 	if err != nil {
