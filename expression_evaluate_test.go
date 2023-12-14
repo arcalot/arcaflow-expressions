@@ -14,6 +14,7 @@ var voidFunc, voidFuncErr = schema.NewCallableFunction(
 	"test",
 	make([]schema.Type, 0),
 	nil,
+	false,
 	nil,
 	func() {
 	},
@@ -22,6 +23,7 @@ var strFunc, strFuncErr = schema.NewCallableFunction(
 	"test",
 	make([]schema.Type, 0),
 	schema.NewStringSchema(nil, nil, nil),
+	true,
 	nil,
 	func() (string, error) {
 		return "test", nil
@@ -31,6 +33,7 @@ var strToStrFunc, strToStrFuncErr = schema.NewCallableFunction(
 	"test",
 	[]schema.Type{schema.NewStringSchema(nil, nil, nil)},
 	schema.NewStringSchema(nil, nil, nil),
+	true,
 	nil,
 	func(a string) (string, error) {
 		return a, nil
@@ -44,6 +47,7 @@ var twoIntToIntFunc, twoIntToIntFuncErr = schema.NewCallableFunction(
 		schema.NewIntSchema(nil, nil, nil),
 	},
 	schema.NewIntSchema(nil, nil, nil),
+	true,
 	nil,
 	func(a int64, b int64) (int64, error) {
 		return a * b, nil

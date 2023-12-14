@@ -69,7 +69,7 @@ func TestLiteralTypeResolution(t *testing.T) {
 }
 
 func TestFunctionTypeResolution_void(t *testing.T) {
-	voidFunc, err := schema.NewCallableFunction("voidFunc", make([]schema.Type, 0), nil, nil, func() {})
+	voidFunc, err := schema.NewCallableFunction("voidFunc", make([]schema.Type, 0), nil, false, nil, func() {})
 	assert.NoError(t, err)
 
 	expr, err := expressions.New(`voidFunc()`)
@@ -84,6 +84,7 @@ func TestFunctionTypeResolution_compoundFunctions(t *testing.T) {
 		"intInOut",
 		[]schema.Type{schema.NewIntSchema(nil, nil, nil)},
 		schema.NewIntSchema(nil, nil, nil),
+		false,
 		nil,
 		func(a int64) int64 { return a },
 	)

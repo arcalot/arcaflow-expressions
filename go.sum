@@ -1,7 +1,5 @@
 go.arcalot.io/assert v1.6.0 h1:iKA8SZZ1MRblMX5QAwwY5RbpR+VNyp//4IU7vo08Xu0=
 go.arcalot.io/assert v1.6.0/go.mod h1:Xy3ScX0p9IMY89gdsgexOKxnmDr0nGHG9dV7p8Uxg7w=
-go.flow.arcalot.io/pluginsdk v0.4.1 h1:sooyHRNCH/EIQJe+842qZJAgXHuffclFbc3hPMgbhCc=
-go.flow.arcalot.io/pluginsdk v0.4.1/go.mod h1:8Gp8Q0Eo0s+2I4nNl3uQ95jPi2zFKEX7JqyjhmK7BiI=
-go.flow.arcalot.io/pluginsdk v0.5.1 h1:ebb2ThAqmjmwGpDyKpd1wEDUisPqPabgARjFohy47Io=
-go.flow.arcalot.io/pluginsdk v0.5.1/go.mod h1:2s2f//7uOkBjr1QaiWJD/bqDIeLlINJtD1BhiY4aGPM=
+go.flow.arcalot.io/pluginsdk v0.7.0 h1:5oZ9mH5KJwvhUKxPJ0hj1aAq8CZoY9CdJIaLgbRquNo=
+go.flow.arcalot.io/pluginsdk v0.7.0/go.mod h1:2s2f//7uOkBjr1QaiWJD/bqDIeLlINJtD1BhiY4aGPM=
 gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=

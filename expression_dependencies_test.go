@@ -96,7 +96,7 @@ func TestLiteralDependencyResolution(t *testing.T) {
 }
 
 func TestFunctionDependencyResolution_void(t *testing.T) {
-	voidFunc, err := schema.NewCallableFunction("voidFunc", make([]schema.Type, 0), nil, nil, func() {})
+	voidFunc, err := schema.NewCallableFunction("voidFunc", make([]schema.Type, 0), nil, false, nil, func() {})
 	assert.NoError(t, err)
 
 	expr, err := expressions.New(`voidFunc()`)
@@ -120,6 +120,7 @@ func TestFunctionDependencyResolution_singleParam(t *testing.T) {
 		"intIn",
 		[]schema.Type{schema.NewIntSchema(nil, nil, nil)},
 		nil,
+		false,
 		nil,
 		func(a int64) {},
 	)
@@ -150,6 +151,7 @@ func TestFunctionDependencyResolution_multiParam(t *testing.T) {
 			schema.NewStringSchema(nil, nil, nil),
 		},
 		nil,
+		false,
 		nil,
 		func(a int64, b int64, c string) {},
 	)
@@ -170,6 +172,7 @@ func TestFunctionDependencyResolution_compoundFunctions(t *testing.T) {
 		"intInOut",
 		[]schema.Type{schema.NewIntSchema(nil, nil, nil)},
 		schema.NewIntSchema(nil, nil, nil),
+		false,
 		nil,
 		func(a int64) int64 { return a },
 	)
@@ -189,6 +192,7 @@ func TestFunctionDependencyResolution_error_wrongType(t *testing.T) {
 		"intIn",
 		[]schema.Type{schema.NewIntSchema(nil, nil, nil)},
 		nil,
+		false,
 		nil,
 		func(a int64) {},
 	)
@@ -210,6 +214,7 @@ func TestFunctionDependencyResolution_error_wrongArgCount(t *testing.T) {
 		"intIn",
 		[]schema.Type{schema.NewIntSchema(nil, nil, nil)},
 		nil,
+		false,
 		nil,
 		func(a int64) {},
 	)
@@ -246,6 +251,7 @@ func TestFunctionDependencyResolution_dynamicTyping(t *testing.T) {
 		"intIn",
 		[]schema.Type{schema.NewIntSchema(nil, nil, nil)},
 		nil,
+		false,
 		nil,
 		func(a int64) {},
 	)
@@ -254,6 +260,7 @@ func TestFunctionDependencyResolution_dynamicTyping(t *testing.T) {
 		"strIn",
 		[]schema.Type{schema.NewStringSchema(nil, nil, nil)},
 		nil,
+		false,
 		nil,
 		func(a string) {},
 	)

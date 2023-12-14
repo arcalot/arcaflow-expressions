@@ -96,7 +96,7 @@ func (c *dependencyContext) functionDependencies(
 		newFuncArgsPath.Subtrees = append(newFuncArgsPath.Subtrees, argDependencies)
 	}
 	// Now get the type from the function output
-	outputType, err := functionSchema.Output(argTypes)
+	outputType, _, err := functionSchema.Output(argTypes)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error while getting return type (%w)", err)
 	}
