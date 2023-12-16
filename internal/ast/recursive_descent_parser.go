@@ -3,12 +3,13 @@ package ast
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 )
 
 /*
 Current grammar:
-root_expression ::= root_identifier [expression_access] | literal | function_call
+root_expression ::= root_identifier [expression_access] | literal | function_call | binary_operation
 chained_expression := identifier [expression_access]
 expression_access ::= map_access | dot_notation
 map_access ::= "[" key "]" [chained_expression]
@@ -17,6 +18,8 @@ root_identifier ::= identifier | "$"
 literal := IntLiteralToken | StringLiteralToken
 function_call := identifier "(" [argument_list] ")"
 argument_list := argument_list "," root_expression | root_expression
+binary_operator := ">" | "<" | ">" "=" | "<" "=" | "=" "=" | "!" "=" | "+" | "-" | "*" | "/"
+binary_operation := root_expression binary_operator root_expression
 
 filtering/querying will be added later if needed.
 */
@@ -105,6 +108,22 @@ func (p *Parser) parseIntLiteral() (*IntLiteral, error) {
 	return literal, nil
 }
 
+func (p *Parser) parseBooleanLiteral() (*BooleanLiteral, error) {
+	if p.currentToken.TokenID != BooleanLiteralToken {
+		return nil, &InvalidGrammarError{FoundToken: p.currentToken, ExpectedTokens: []TokenID{BooleanLiteralToken}}
+	}
+	parsedBoolean, err := strconv.ParseBool(p.currentToken.Value)
+	if err != nil {
+		return nil, err // Should not fail if the parser is set up correctly
+	}
+	literal := &BooleanLiteral{BooleanValue: parsedBoolean}
+	err = p.advanceToken()
+	if err != nil {
+		return nil, err
+	}
+	return literal, nil
+}
+
 func (p *Parser) parseStringLiteral() (*StringLiteral, error) {
 	// The literal token includes the "", so trim the ends off.
 	literal := &StringLiteral{StrValue: p.currentToken.Value[1 : len(p.currentToken.Value)-1]}
@@ -118,10 +137,10 @@ func (p *Parser) parseStringLiteral() (*StringLiteral, error) {
 func (p *Parser) parseArgs() (*ArgumentList, error) {
 	// Keep parsing expressions until you hit a comma.
 	argNodes := make([]Node, 0)
-	expectedToken := ArgListStartToken
+	expectedToken := ParenthesesStartToken
 	for i := 0; ; i++ {
 		// Validate and go past the first ( on the first iteration, and commas on later iterations.
-		if i != 0 && p.currentToken.TokenID == ArgListEndToken {
+		if i != 0 && p.currentToken.TokenID == ParenthesesEndToken {
 			// Advances past the )
 			err := p.advanceToken()
 			if err != nil {
@@ -142,7 +161,7 @@ func (p *Parser) parseArgs() (*ArgumentList, error) {
 			return nil, err
 		}
 		// Check end condition
-		if i == 0 && p.currentToken.TokenID == ArgListEndToken {
+		if i == 0 && p.currentToken.TokenID == ParenthesesEndToken {
 			// Advances past the )
 			err := p.advanceToken()
 			if err != nil {
@@ -198,15 +217,260 @@ func (p *Parser) ParseExpression() (Node, error) {
 	return node, err
 }
 
+func (p *Parser) parseMathOperator() (MathOperationType, error) {
+	firstToken := p.currentToken.TokenID
+	err := p.advanceToken()
+	if err != nil {
+		return Invalid, err
+	}
+	switch firstToken {
+	case PlusToken:
+		return Add, nil
+	case NegationToken:
+		return Subtract, nil
+	case WildcardMultiplyToken:
+		return Multiply, nil
+	case DivideToken:
+		return Divide, nil
+	case PowerToken:
+		return Power, nil
+	case ModulusToken:
+		return Modulus, nil
+	case NotToken, GreaterThanToken, LessThanToken, EqualsToken:
+		// Need to validate and advance past the following =
+		if p.currentToken.TokenID == EqualsToken {
+			err := p.advanceToken()
+			if err != nil {
+				return Invalid, err
+			}
+			switch firstToken {
+			case NotToken:
+				return NotEquals, nil
+			case GreaterThanToken:
+				return GreaterThanEquals, nil
+			case LessThanToken:
+				return LessThanEquals, nil
+			case EqualsToken:
+				return Equals, nil
+			default:
+				// If you get here, there is a case missing here that is in the outer switch
+				return Invalid, fmt.Errorf("illegal code state hit after token %s", firstToken)
+			}
+		} else {
+			switch firstToken {
+			case GreaterThanToken:
+				return GreaterThan, nil
+			case LessThanToken:
+				return LessThan, nil
+			default:
+				// Not equal or double equals
+				return Invalid, &InvalidGrammarError{FoundToken: p.currentToken, ExpectedTokens: []TokenID{EqualsToken}}
+			}
+		}
+	case AndToken:
+		if p.currentToken == nil || p.currentToken.TokenID != AndToken {
+			return Invalid, &InvalidGrammarError{FoundToken: p.currentToken, ExpectedTokens: []TokenID{AndToken}}
+		}
+		err := p.advanceToken()
+		if err != nil {
+			return Invalid, err
+		}
+		return And, nil
+	case OrToken:
+		if p.currentToken == nil || p.currentToken.TokenID != OrToken {
+			return Invalid, &InvalidGrammarError{FoundToken: p.currentToken, ExpectedTokens: []TokenID{OrToken}}
+		}
+		err := p.advanceToken()
+		if err != nil {
+			return Invalid, err
+		}
+		return Or, nil
+	default:
+		return Invalid, &InvalidGrammarError{FoundToken: p.currentToken, ExpectedTokens: []TokenID{
+			PlusToken,
+			NegationToken,
+			WildcardMultiplyToken,
+			DivideToken,
+			PowerToken,
+			NotToken,
+			GreaterThanToken,
+			LessThanToken,
+			EqualsToken,
+		}}
+	}
+}
+
+// parseBinaryExpression parses a binary expression that has one of the supported operators,
+// and uses childNodeParser for the left and right of the node.
+// If the given operator isn't found, it still continues down recursively with the childNodeParser.
+func (p *Parser) parseBinaryExpression(supportedOperators []TokenID, childNodeParser func() (Node, error)) (Node, error) {
+	root, err := childNodeParser()
+	if err != nil {
+		return nil, err
+	}
+	// Loop while there is addition or subtraction ahead.
+	for p.currentToken != nil && slices.Contains(supportedOperators, p.currentToken.TokenID) {
+		operatorToken, err := p.parseMathOperator()
+		if err != nil {
+			return nil, err
+		}
+		right, err := childNodeParser()
+		if err != nil {
+			return nil, err
+		}
+		root = &BinaryOperation{
+			LeftNode:  root,
+			RightNode: right,
+			Operation: operatorToken,
+		}
+	}
+	return root, nil
+}
+
+// parseLeftUnaryExpression parses an expression with the operator on the left, and the rest of the expression
+// on the right. If the expected token is not there, it continues recursively with childNodeParser.
+func (p *Parser) parseLeftUnaryExpression(supportedOperators []TokenID, childNodeParser func() (Node, error)) (Node, error) {
+	if p.currentToken == nil {
+		return nil, &InvalidGrammarError{FoundToken: p.currentToken, ExpectedTokens: []TokenID{}}
+	}
+	if slices.Contains(supportedOperators, p.currentToken.TokenID) {
+		operation, err := p.parseMathOperator()
+		if err != nil {
+			return nil, err
+		}
+		subNode, err := childNodeParser()
+		if err != nil {
+			return nil, err
+		}
+		return &UnaryOperation{
+			LeftOperation: operation,
+			RightNode:     subNode,
+		}, nil
+	}
+	return childNodeParser()
+}
+
+// ORDER OF OPERATIONS
+// negation P E MD AS Comparisons not and or
+// The higher-precedence ones should be deepest in the call tree. So logical or should be called first.
+
+func (p *Parser) parseRootExpression() (Node, error) {
+	// Currently or is the first one to call based on the order of operations specified above.
+	return p.parseConditionalOr()
+}
+
+func (p *Parser) parseConditionalOr() (Node, error) {
+	return p.parseBinaryExpression([]TokenID{OrToken}, p.parseConditionalAnd)
+}
+
+func (p *Parser) parseConditionalAnd() (Node, error) {
+	return p.parseBinaryExpression([]TokenID{AndToken}, p.parseConditionalNot)
+}
+
+func (p *Parser) parseConditionalNot() (Node, error) {
+	return p.parseLeftUnaryExpression([]TokenID{NegationToken}, p.parseComparisonExpression)
+}
+
+func (p *Parser) parseComparisonExpression() (Node, error) {
+	// The allowed tokens are the FIRST ones associated with a binary comparison. The parseMathOperator func called by
+	// parseBinaryExpression will handle the second token, if present.
+	return p.parseBinaryExpression([]TokenID{GreaterThanToken, LessThanToken, NotToken, EqualsToken}, p.parseAdditionSubtraction)
+}
+
+func (p *Parser) parseAdditionSubtraction() (Node, error) {
+	return p.parseBinaryExpression([]TokenID{PlusToken, NegationToken}, p.parseMultiplicationDivision)
+}
+
+func (p *Parser) parseMultiplicationDivision() (Node, error) {
+	return p.parseBinaryExpression([]TokenID{WildcardMultiplyToken, DivideToken, ModulusToken}, p.parseExponents)
+}
+
+func (p *Parser) parseExponents() (Node, error) {
+	return p.parseBinaryExpression([]TokenID{PowerToken}, p.parseParentheses)
+}
+
+func (p *Parser) parseParentheses() (Node, error) {
+	// If parentheses are hit, start back at addition/subtraction.
+	if p.currentToken.TokenID == ParenthesesStartToken {
+		err := p.advanceToken() // Go past the parentheses
+		if err != nil {
+			return nil, err
+		}
+		// Back to the root
+		node, err := p.parseRootExpression()
+		if err != nil {
+			return nil, err
+		}
+		err = p.eat([]TokenID{ParenthesesEndToken})
+		if err != nil {
+			return nil, err
+		}
+		return node, nil
+	}
+	return p.parseNegationOperation()
+}
+
+func (p *Parser) parseNegationOperation() (Node, error) {
+	return p.parseLeftUnaryExpression([]TokenID{NegationToken}, p.parseRootValueOrAccess)
+}
+
+// parseRootExpression parses a root expression
+func (p *Parser) parseRootValueOrAccess() (Node, error) {
+	if p.currentToken == nil || !slices.Contains(validStartTokens, p.currentToken.TokenID) {
+		return nil, &InvalidGrammarError{FoundToken: p.currentToken, ExpectedTokens: validStartTokens}
+	} else if p.atRoot && p.currentToken.TokenID == CurrentObjectAccessToken {
+		// Can't support @ at root
+		return nil, &InvalidGrammarError{FoundToken: p.currentToken, ExpectedTokens: []TokenID{RootAccessToken, IdentifierToken}}
+	}
+	if p.atRoot {
+		p.atRoot = false // Know when you can reference the current object.
+	}
+
+	var firstNode Node
+	var err error
+	// An expression can start with a literal, or an identifier. If an identifier, it can lead to a chain or a function.
+	if slices.Contains(literalTokens, p.currentToken.TokenID) {
+		switch literalToken := p.currentToken.TokenID; literalToken {
+		case StringLiteralToken:
+			firstNode, err = p.parseStringLiteral()
+		case IntLiteralToken:
+			firstNode, err = p.parseIntLiteral()
+		case BooleanLiteralToken:
+			firstNode, err = p.parseBooleanLiteral()
+		default:
+			return nil, fmt.Errorf(
+				"bug: Literal token type %s is missing from switch in parseUnchainedRootExpression",
+				literalTokens)
+		}
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		firstNode = &Identifier{IdentifierName: p.currentToken.Value}
+		// The literal case is accounted for, so if it gets here it's an identifier. That can lead to a chain or function call.
+		err = p.advanceToken()
+		if err != nil {
+			return nil, err
+		}
+	}
+	if p.currentToken != nil {
+		return p.parseChainedValueOrAccess(firstNode)
+	} else {
+		return firstNode, nil
+	}
+}
+
 var expStartIdentifierTokens = []TokenID{RootAccessToken, CurrentObjectAccessToken, IdentifierToken}
-var literalTokens = []TokenID{StringLiteralToken, IntLiteralToken}
+var literalTokens = []TokenID{StringLiteralToken, IntLiteralToken, BooleanLiteralToken}
 var validStartTokens = append(expStartIdentifierTokens, literalTokens...)
 
-// parseSubExpression parses all the dot notations, map accesses, and function calls.
-func (p *Parser) parseAfterIdentifier(identifier *Identifier) (Node, error) {
-	var currentNode Node = identifier
+// parseSubExpression parses all the dot notations, map accesses, binary operations, and function calls.
+func (p *Parser) parseChainedValueOrAccess(rootNode Node) (Node, error) {
+	var rootNodeAny any = rootNode
+	identifier, rootIsIdentier := rootNodeAny.(*Identifier)
+	var currentNode = rootNode
 	// Handle types that cannot be chained first.
-	if p.currentToken.TokenID == ArgListStartToken {
+	if p.currentToken.TokenID == ParenthesesStartToken {
 		// Function call
 		argList, err := p.parseArgs()
 		if err != nil {
@@ -218,11 +482,15 @@ func (p *Parser) parseAfterIdentifier(identifier *Identifier) (Node, error) {
 		}
 	}
 	for {
-		switch {
-		case p.currentToken == nil:
+		if p.currentToken == nil {
 			// Reached end
 			return currentNode, nil
-		case p.currentToken.TokenID == DotObjectAccessToken:
+		}
+		switch p.currentToken.TokenID {
+		case DotObjectAccessToken:
+			if !rootIsIdentier {
+				return nil, fmt.Errorf("dot notation cannot follow a literal")
+			}
 			// Dot notation
 			err := p.advanceToken() // Move past the .
 			if err != nil {
@@ -233,7 +501,10 @@ func (p *Parser) parseAfterIdentifier(identifier *Identifier) (Node, error) {
 				return nil, err
 			}
 			currentNode = &DotNotation{LeftAccessibleNode: currentNode, RightAccessIdentifier: accessingIdentifier}
-		case p.currentToken.TokenID == BracketAccessDelimiterStartToken:
+		case BracketAccessDelimiterStartToken:
+			if !rootIsIdentier {
+				return nil, fmt.Errorf("bracket access cannot follow a literal")
+			}
 			// Bracket notation
 			parsedMapAccess, err := p.parseBracketAccess(currentNode)
 			if err != nil {
@@ -247,49 +518,11 @@ func (p *Parser) parseAfterIdentifier(identifier *Identifier) (Node, error) {
 	}
 }
 
-// parseRootExpression parses a root expression
-func (p *Parser) parseRootExpression() (Node, error) {
-	if p.currentToken == nil || !sliceContains(validStartTokens, p.currentToken.TokenID) {
-		return nil, &InvalidGrammarError{FoundToken: p.currentToken, ExpectedTokens: validStartTokens}
-	} else if p.atRoot && p.currentToken.TokenID == CurrentObjectAccessToken {
-		// Can't support @ at root
-		return nil, &InvalidGrammarError{FoundToken: p.currentToken, ExpectedTokens: []TokenID{RootAccessToken, IdentifierToken}}
+// eat validates then goes past the given token.
+// For use when you know which tokens are required.
+func (p *Parser) eat(validTokens []TokenID) error {
+	if p.currentToken == nil || !slices.Contains(validTokens, p.currentToken.TokenID) {
+		return &InvalidGrammarError{FoundToken: p.currentToken, ExpectedTokens: []TokenID{IdentifierToken}}
 	}
-	if p.atRoot {
-		p.atRoot = false // Know when you can reference the current object.
-	}
-
-	// An expression can start with a literal, or an identifier. If an identifier, it can lead to a chain or a function.
-	if sliceContains(literalTokens, p.currentToken.TokenID) {
-		switch literalToken := p.currentToken.TokenID; literalToken {
-		case StringLiteralToken:
-			return p.parseStringLiteral()
-		case IntLiteralToken:
-			return p.parseIntLiteral()
-		default:
-			return nil, fmt.Errorf(
-				"bug: Literal token type %s is missing from switch in parseUnchainedRootExpression",
-				literalTokens)
-		}
-	}
-	// The literal case is accounted for, so if it gets here it's an identifier. That can lead to a chain or function call.
-	var firstIdentifier = &Identifier{IdentifierName: p.currentToken.Value}
-	err := p.advanceToken()
-	if err != nil {
-		return nil, err
-	}
-	if p.currentToken != nil {
-		return p.parseAfterIdentifier(firstIdentifier)
-	} else {
-		return firstIdentifier, nil
-	}
-}
-
-func sliceContains(slice []TokenID, value TokenID) bool {
-	for _, val := range slice {
-		if val == value {
-			return true
-		}
-	}
-	return false
+	return p.advanceToken()
 }

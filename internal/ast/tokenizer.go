@@ -19,6 +19,8 @@ const (
 	StringLiteralToken TokenID = "string"
 	// IntLiteralToken represents an integer token. Must not start with 0.
 	IntLiteralToken TokenID = "int"
+	// BooleanLiteralToken represents true or false.
+	BooleanLiteralToken TokenID = "boolean"
 	// BracketAccessDelimiterStartToken represents the token before an object
 	//  access. The '[' in 'obj["key"]'.
 	//nolint:gosec
@@ -27,10 +29,10 @@ const (
 	// access. The '[' in 'obj["key"]'.
 	//nolint:gosec
 	BracketAccessDelimiterEndToken TokenID = "map-delimiter-end"
-	// ArgListStartToken represents the start token of a argument list. '('
-	ArgListStartToken TokenID = "args-start"
-	// ArgListEndToken represents the closing of the argument list. ')'
-	ArgListEndToken TokenID = "args-end"
+	// ParenthesesStartToken represents the start token of an argument list or mathematical parentheses. '('
+	ParenthesesStartToken TokenID = "parentheses-start"
+	// ParenthesesEndToken represents the closing of the argument list. ')'
+	ParenthesesEndToken TokenID = "parentheses-end"
 	// DotObjectAccessToken represents the '.' token in 'a.b' (dot notation).
 	DotObjectAccessToken TokenID = "object-access"
 	// RootAccessToken represents the token that identifies accessing the
@@ -49,10 +51,28 @@ const (
 	// NegationToken represents a negation sign '-'.
 	//nolint:gosec
 	NegationToken TokenID = "negation-sign"
-	// WildcardToken represents a wildcard token '*'.
-	WildcardToken TokenID = "wildcard"
+	// WildcardMultiplyToken represents a wildcard token '*'.
+	WildcardMultiplyToken TokenID = "wildcard"
 	// ListSeparatorToken represents a comma in a parameter list
 	ListSeparatorToken TokenID = "list-separator"
+	// DivideToken represents the forward slash used to specify division.
+	DivideToken TokenID = "divide"
+	// GreaterThanToken represents a > symbol.
+	GreaterThanToken TokenID = "greater-than"
+	// LessThanToken represents a < symbol.
+	LessThanToken TokenID = "less-than"
+	// PlusToken represents a + symbol.
+	PlusToken TokenID = "plus"
+	// NotToken represents an ! symbol.
+	NotToken TokenID = "not"
+	// PowerToken represents a caret symbol for power math.
+	PowerToken TokenID = "power"
+	// ModulusToken represents a percent symbol for remainder.
+	ModulusToken TokenID = "mod"
+	// AndToken represents logical-and &&
+	AndToken TokenID = "and"
+	// OrToken represents logical-or ||
+	OrToken TokenID = "or"
 	// UnknownToken is a placeholder for when there was an error in the token.
 	UnknownToken TokenID = "error"
 )
@@ -82,13 +102,14 @@ type tokenPattern struct {
 }
 
 var tokenPatterns = []tokenPattern{
+	{BooleanLiteralToken, regexp.MustCompile(`^true|false$`)},      // true or false. Note: This needs to be above IdentifierToken
 	{IntLiteralToken, regexp.MustCompile(`^0$|^[1-9]\d*$`)},        // Note: numbers that start with 0 are identifiers.
 	{IdentifierToken, regexp.MustCompile(`^\w+$`)},                 // Any valid object name
 	{StringLiteralToken, regexp.MustCompile(`^".*"$|^'.*'$`)},      // "string example"
 	{BracketAccessDelimiterStartToken, regexp.MustCompile(`^\[$`)}, // the [ in map["key"]
 	{BracketAccessDelimiterEndToken, regexp.MustCompile(`^]$`)},    // the ] in map["key"]
-	{ArgListStartToken, regexp.MustCompile(`^\($`)},                // (
-	{ArgListEndToken, regexp.MustCompile(`^\)$`)},                  // )
+	{ParenthesesStartToken, regexp.MustCompile(`^\($`)},            // (
+	{ParenthesesEndToken, regexp.MustCompile(`^\)$`)},              // )
 	{DotObjectAccessToken, regexp.MustCompile(`^\.$`)},             // .
 	{RootAccessToken, regexp.MustCompile(`^\$$`)},                  // $
 	{CurrentObjectAccessToken, regexp.MustCompile(`^@$`)},          // @
@@ -96,8 +117,18 @@ var tokenPatterns = []tokenPattern{
 	{SelectorToken, regexp.MustCompile(`^:$`)},                     // :
 	{FilterToken, regexp.MustCompile(`^\?$`)},                      // ?
 	{NegationToken, regexp.MustCompile(`^-$`)},                     // -
-	{WildcardToken, regexp.MustCompile(`^\*$`)},                    // *
+	{WildcardMultiplyToken, regexp.MustCompile(`^\*$`)},            // *
 	{ListSeparatorToken, regexp.MustCompile(`^,$`)},                // ,
+	{DivideToken, regexp.MustCompile(`^/$`)},                       // /
+	{GreaterThanToken, regexp.MustCompile(`^>$`)},                  // >
+	{LessThanToken, regexp.MustCompile(`^<$`)},                     // <
+	{PlusToken, regexp.MustCompile(`^\+$`)},                        // +
+	{NotToken, regexp.MustCompile(`^!$`)},                          // !
+	{PowerToken, regexp.MustCompile(`^\^$`)},                       // ^
+	{ModulusToken, regexp.MustCompile(`^%$`)},                      // %
+	{AndToken, regexp.MustCompile(`^&$`)},                          // &&
+	{OrToken, regexp.MustCompile(`^\|$`)},                          // ||
+
 }
 
 // initTokenizer initializes the tokenizer struct with the given expression.

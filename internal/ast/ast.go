@@ -67,6 +67,22 @@ func (l *IntLiteral) Value() interface{} {
 	return l.IntValue
 }
 
+// BooleanLiteral represents a boolean literal value in the abstract syntax
+// tree. true or false
+type BooleanLiteral struct {
+	BooleanValue bool
+}
+
+// String returns a string representation of the integer contained.
+func (l *BooleanLiteral) String() string {
+	return strconv.FormatBool(l.BooleanValue)
+}
+
+// Value returns the integer contained.
+func (l *BooleanLiteral) Value() interface{} {
+	return l.BooleanValue
+}
+
 // BracketAccessor represents a part of the abstract syntax tree that is accessing
 // the value at a key in a map/object, or index of a list.
 // The format is the value to the left, followed by an open/right square bracket, followed
@@ -188,4 +204,90 @@ func (l *ArgumentList) String() string {
 		result += ", " + l.Arguments[i].String()
 	}
 	return result
+}
+
+type MathOperationType int
+
+const (
+	Invalid MathOperationType = iota
+	Add
+	Subtract
+	Multiply
+	Divide
+	Modulus
+	Power
+	Equals
+	NotEquals
+	GreaterThan
+	LessThan
+	GreaterThanEquals
+	LessThanEquals
+	And
+	Or
+)
+
+func (e MathOperationType) String() string {
+	switch e {
+	case Invalid:
+		return "INVALID"
+	case Add:
+		return "+"
+	case Subtract:
+		return "-"
+	case Multiply:
+		return "*"
+	case Divide:
+		return "÷"
+	case Power:
+		return "^"
+	case Equals:
+		return "=="
+	case NotEquals:
+		return "!="
+	case GreaterThan:
+		return ">"
+	case LessThan:
+		return "<"
+	case GreaterThanEquals:
+		return ">="
+	case LessThanEquals:
+		return "<="
+	case And:
+		return "&&"
+	case Or:
+		return "||"
+	default:
+		return "ENTRY MISSING"
+	}
+}
+
+type BinaryOperation struct {
+	LeftNode  Node
+	RightNode Node
+	Operation MathOperationType
+}
+
+// Right returns nil, because an identifier does not branch left and right.
+func (b *BinaryOperation) Right() Node {
+	return b.RightNode
+}
+
+// Left returns nil, because an identifier does not branch left and right.
+func (b *BinaryOperation) Left() Node {
+	return b.LeftNode
+}
+
+// String returns the identifier name.
+func (b *BinaryOperation) String() string {
+	return "(" + b.LeftNode.String() + ") " + b.Operation.String() + " (" + b.RightNode.String() + ")"
+}
+
+type UnaryOperation struct {
+	LeftOperation MathOperationType
+	RightNode     Node
+}
+
+// String returns the identifier name.
+func (b *UnaryOperation) String() string {
+	return b.LeftOperation.String() + " " + b.RightNode.String()
 }

@@ -27,11 +27,11 @@ func TestTokenizer(t *testing.T) {
 		{"credentials", IdentifierToken, filename, 1, 43},
 		{"[", BracketAccessDelimiterStartToken, filename, 1, 54},
 		{"f", IdentifierToken, filename, 1, 55},
-		{"(", ArgListStartToken, filename, 1, 56},
+		{"(", ParenthesesStartToken, filename, 1, 56},
 		{"1", IntLiteralToken, filename, 1, 57},
 		{",", ListSeparatorToken, filename, 1, 58},
 		{"2", IntLiteralToken, filename, 1, 59},
-		{")", ArgListEndToken, filename, 1, 60},
+		{")", ParenthesesEndToken, filename, 1, 60},
 		{"]", BracketAccessDelimiterEndToken, filename, 1, 61},
 	}
 	for _, expected := range expectedValue {
@@ -55,6 +55,33 @@ func TestTokenizerWithEscapedStr(t *testing.T) {
 		nextToken, err := tokenizer.getNext()
 		assert.NoError(t, err)
 		assert.Equals(t, nextToken.Value, expected)
+	}
+}
+
+func TestBinaryOperations(t *testing.T) {
+	input := `5 + 5 / 1 >= 5^5`
+	tokenizer := initTokenizer(input, filename)
+	expectedValue := []TokenValue{
+		{"5", IntLiteralToken, filename, 1, 1},
+		{"+", PlusToken, filename, 1, 3},
+		{"5", IntLiteralToken, filename, 1, 5},
+		{"/", DivideToken, filename, 1, 7},
+		{"1", IntLiteralToken, filename, 1, 9},
+		{">", GreaterThanToken, filename, 1, 11},
+		{"=", EqualsToken, filename, 1, 12},
+		{"5", IntLiteralToken, filename, 1, 14},
+		{"^", PowerToken, filename, 1, 15},
+		{"5", IntLiteralToken, filename, 1, 16},
+	}
+	for _, expected := range expectedValue {
+		assert.Equals(t, tokenizer.hasNextToken(), true)
+		nextToken, err := tokenizer.getNext()
+		assert.NoError(t, err)
+		assert.Equals(t, nextToken.Value, expected.Value)
+		assert.Equals(t, nextToken.TokenID, expected.TokenID)
+		assert.Equals(t, nextToken.Filename, expected.Filename)
+		assert.Equals(t, nextToken.Line, expected.Line)
+		assert.Equals(t, nextToken.Column, expected.Column)
 	}
 }
 
@@ -100,15 +127,51 @@ func TestIntLiteral(t *testing.T) {
 	tokenizer := initTokenizer(input, filename)
 	assert.Equals(t, tokenizer.hasNextToken(), true)
 	tokenVal, err := tokenizer.getNext()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equals(t, tokenVal.TokenID, IntLiteralToken)
 	assert.Equals(t, tokenVal.Value, "90")
 	assert.Equals(t, tokenizer.hasNextToken(), true)
 	// Numbers that start with 0 appear to cause error in scanner
 	tokenVal, err = tokenizer.getNext()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equals(t, tokenVal.TokenID, IdentifierToken)
 	assert.Equals(t, tokenVal.Value, "09")
+}
+func TestBooleanLiterals(t *testing.T) {
+	input := "true && false || false"
+	tokenizer := initTokenizer(input, filename)
+	assert.Equals(t, tokenizer.hasNextToken(), true)
+	tokenVal, err := tokenizer.getNext()
+	assert.NoError(t, err)
+	assert.Equals(t, tokenVal.TokenID, BooleanLiteralToken)
+	assert.Equals(t, tokenVal.Value, "true")
+	assert.Equals(t, tokenizer.hasNextToken(), true)
+	tokenVal, err = tokenizer.getNext()
+	assert.NoError(t, err)
+	assert.Equals(t, tokenVal.TokenID, AndToken)
+	assert.Equals(t, tokenVal.Value, "&")
+	assert.Equals(t, tokenizer.hasNextToken(), true)
+	tokenVal, err = tokenizer.getNext()
+	assert.NoError(t, err)
+	assert.Equals(t, tokenVal.TokenID, AndToken)
+	assert.Equals(t, tokenVal.Value, "&")
+	assert.Equals(t, tokenizer.hasNextToken(), true)
+	tokenVal, err = tokenizer.getNext()
+	assert.Nil(t, err)
+	assert.Equals(t, tokenVal.TokenID, BooleanLiteralToken)
+	assert.Equals(t, tokenVal.Value, "false")
+	tokenVal, err = tokenizer.getNext()
+	assert.Nil(t, err)
+	assert.Equals(t, tokenVal.TokenID, OrToken)
+	assert.Equals(t, tokenVal.Value, "|")
+	tokenVal, err = tokenizer.getNext()
+	assert.Nil(t, err)
+	assert.Equals(t, tokenVal.TokenID, OrToken)
+	assert.Equals(t, tokenVal.Value, "|")
+	tokenVal, err = tokenizer.getNext()
+	assert.Nil(t, err)
+	assert.Equals(t, tokenVal.TokenID, BooleanLiteralToken)
+	assert.Equals(t, tokenVal.Value, "false")
 }
 
 func TestWildcard(t *testing.T) {
