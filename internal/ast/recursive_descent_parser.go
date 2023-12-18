@@ -80,11 +80,7 @@ func (p *Parser) parseBracketAccess(expressionToAccess Node) (*BracketAccessor, 
 	}
 
 	// Verify and read in the ]
-	if p.currentToken == nil ||
-		p.currentToken.TokenID != BracketAccessDelimiterEndToken {
-		return nil, &InvalidGrammarError{FoundToken: p.currentToken, ExpectedTokens: []TokenID{IdentifierToken}}
-	}
-	err = p.advanceToken()
+	err = p.eat([]TokenID{BracketAccessDelimiterEndToken})
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +147,7 @@ func (p *Parser) parseArgs() (*ArgumentList, error) {
 			// The first is preceded by a (, the others are preceded by ,
 			return nil, &InvalidGrammarError{
 				FoundToken:     p.currentToken,
-				ExpectedTokens: []TokenID{expectedToken},
+				ExpectedTokens: []TokenID{expectedToken, ParenthesesEndToken},
 			}
 		}
 
@@ -522,7 +518,7 @@ func (p *Parser) parseChainedValueOrAccess(rootNode Node) (Node, error) {
 // For use when you know which tokens are required.
 func (p *Parser) eat(validTokens []TokenID) error {
 	if p.currentToken == nil || !slices.Contains(validTokens, p.currentToken.TokenID) {
-		return &InvalidGrammarError{FoundToken: p.currentToken, ExpectedTokens: []TokenID{IdentifierToken}}
+		return &InvalidGrammarError{FoundToken: p.currentToken, ExpectedTokens: validTokens}
 	}
 	return p.advanceToken()
 }

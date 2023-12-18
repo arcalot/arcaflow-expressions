@@ -973,3 +973,39 @@ func TestExpression_AllTypes(t *testing.T) {
 	// For some reason, comparing the raw results was failing falsely.
 	assert.Equals(t, parsedResult.String(), root.String())
 }
+
+// Test eating incorrect token (for example, missing expected closing bracket)
+func TestExpression_MismatchedPair(t *testing.T) {
+	bracketAccessExpr := "$.test[5)"
+	// Create parser
+	p, err := InitParser(bracketAccessExpr, t.Name())
+
+	assert.NoError(t, err)
+
+	// Parse and validate
+	_, err = p.ParseExpression()
+
+	assert.Error(t, err)
+	var grammarErr *InvalidGrammarError
+	ok := errors.As(err, &grammarErr)
+	if !ok {
+		t.Fatalf("Returned error is not InvalidGrammarError")
+	}
+	assert.Equals(t, grammarErr.ExpectedTokens, []TokenID{BracketAccessDelimiterEndToken})
+
+	funcExpr := "5 * (5 * 5]"
+	// Create parser
+	p, err = InitParser(funcExpr, t.Name())
+
+	assert.NoError(t, err)
+
+	// Parse and validate
+	_, err = p.ParseExpression()
+
+	assert.Error(t, err)
+	ok = errors.As(err, &grammarErr)
+	if !ok {
+		t.Fatalf("Returned error is not InvalidGrammarError")
+	}
+	assert.Equals(t, grammarErr.ExpectedTokens, []TokenID{ParenthesesEndToken})
+}
