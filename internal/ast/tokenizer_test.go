@@ -96,19 +96,20 @@ func TestInvalidToken(t *testing.T) {
 }
 
 func TestIntLiteral(t *testing.T) {
-	input := "90 09"
+	input := "70 07"
 	tokenizer := initTokenizer(input, filename)
 	assert.Equals(t, tokenizer.hasNextToken(), true)
 	tokenVal, err := tokenizer.getNext()
 	assert.Nil(t, err)
 	assert.Equals(t, tokenVal.TokenID, IntLiteralToken)
-	assert.Equals(t, tokenVal.Value, "90")
+	assert.Equals(t, tokenVal.Value, "70")
 	assert.Equals(t, tokenizer.hasNextToken(), true)
-	// Numbers that start with 0 appear to cause error in scanner
+	// Numbers that start with 0 are interpreted as octal by the string tokenizer,
+	// resulting in an error printed to stderr. It doesn't change the behavior.
 	tokenVal, err = tokenizer.getNext()
 	assert.Nil(t, err)
 	assert.Equals(t, tokenVal.TokenID, IdentifierToken)
-	assert.Equals(t, tokenVal.Value, "09")
+	assert.Equals(t, tokenVal.Value, "07")
 }
 
 func TestWildcard(t *testing.T) {
