@@ -99,18 +99,18 @@ func TestWithFilterType(t *testing.T) {
 }
 
 func TestInvalidToken(t *testing.T) {
-	input := "[&"
+	input := "[€"
 	tokenizer := initTokenizer(input, filename)
 	assert.Equals(t, tokenizer.hasNextToken(), true)
 	tokenVal, err := tokenizer.getNext()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equals(t, tokenVal.TokenID, BracketAccessDelimiterStartToken)
 	assert.Equals(t, tokenVal.Value, "[")
 	assert.Equals(t, tokenizer.hasNextToken(), true)
 	tokenVal, err = tokenizer.getNext()
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 	assert.Equals(t, tokenVal.TokenID, UnknownToken)
-	assert.Equals(t, tokenVal.Value, "&")
+	assert.Equals(t, tokenVal.Value, "€")
 	expectedError := &InvalidTokenError{}
 	isCorrectErrType := errors.As(err, &expectedError)
 	if !isCorrectErrType {
@@ -119,7 +119,7 @@ func TestInvalidToken(t *testing.T) {
 	assert.Equals(t, expectedError.InvalidToken.Column, 2)
 	assert.Equals(t, expectedError.InvalidToken.Line, 1)
 	assert.Equals(t, expectedError.InvalidToken.Filename, filename)
-	assert.Equals(t, expectedError.InvalidToken.Value, "&")
+	assert.Equals(t, expectedError.InvalidToken.Value, "€")
 }
 
 func TestIntLiteral(t *testing.T) {
@@ -157,19 +157,19 @@ func TestBooleanLiterals(t *testing.T) {
 	assert.Equals(t, tokenVal.Value, "&")
 	assert.Equals(t, tokenizer.hasNextToken(), true)
 	tokenVal, err = tokenizer.getNext()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equals(t, tokenVal.TokenID, BooleanLiteralToken)
 	assert.Equals(t, tokenVal.Value, "false")
 	tokenVal, err = tokenizer.getNext()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equals(t, tokenVal.TokenID, OrToken)
 	assert.Equals(t, tokenVal.Value, "|")
 	tokenVal, err = tokenizer.getNext()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equals(t, tokenVal.TokenID, OrToken)
 	assert.Equals(t, tokenVal.Value, "|")
 	tokenVal, err = tokenizer.getNext()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equals(t, tokenVal.TokenID, BooleanLiteralToken)
 	assert.Equals(t, tokenVal.Value, "false")
 }
