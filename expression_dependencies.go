@@ -46,17 +46,13 @@ func (c *dependencyContext) dependencies(
 	case *ast.IntLiteral:
 		return schema.NewIntSchema(nil, nil, nil), nil, nil
 	case *ast.FunctionCall:
-		return c.functionDependencies(n, currentType, path)
+		return c.functionDependencies(n)
 	default:
 		return nil, nil, fmt.Errorf("unsupported AST node type: %T", n)
 	}
 }
 
-func (c *dependencyContext) functionDependencies(
-	node *ast.FunctionCall,
-	_ schema.Type,
-	_ *PathTree,
-) (schema.Type, *PathTree, error) {
+func (c *dependencyContext) functionDependencies(node *ast.FunctionCall) (schema.Type, *PathTree, error) {
 	// Get the types and dependencies of all parameters.
 	functionSchema, found := c.functions[node.FuncIdentifier.IdentifierName]
 	if !found {
@@ -64,9 +60,9 @@ func (c *dependencyContext) functionDependencies(
 	}
 	paramTypes := functionSchema.Parameters()
 	// Validate param count
-	if node.ParameterInputs.NumChildren() != len(paramTypes) {
+	if node.ArgumentInputs.NumChildren() != len(paramTypes) {
 		return nil, nil, fmt.Errorf("invalid call to function '%s'. Expected %d args, got %d args. Function schema: %s",
-			functionSchema.ID(), len(paramTypes), node.ParameterInputs.NumChildren(), functionSchema.String())
+			functionSchema.ID(), len(paramTypes), node.ArgumentInputs.NumChildren(), functionSchema.String())
 	}
 	// Types need to be saved to validate argument types with parameter types, which are also needed to get the output type.
 	// Dependencies need to also be added to the PathTree
@@ -76,11 +72,8 @@ func (c *dependencyContext) functionDependencies(
 	}
 	// Save arg types for passing into output function
 	argTypes := make([]schema.Type, 0)
-	for i := 0; i < node.ParameterInputs.NumChildren(); i++ {
-		arg, err := node.ParameterInputs.GetChild(i)
-		if err != nil {
-			return nil, nil, err
-		}
+	for i := 0; i < len(node.ArgumentInputs.Arguments); i++ {
+		arg := node.ArgumentInputs.Arguments[i]
 		argType, argDependencies, err := c.dependencies(arg, c.rootType, c.rootPath)
 		if err != nil {
 			return nil, nil, err
@@ -138,7 +131,7 @@ func (c *dependencyContext) bracketAccessorDependencies(
 	}
 
 	if literal, ok := node.RightExpression.(ast.ValueLiteral); ok {
-		return dependenciesBracketKey(leftType, literal.Value(), leftPath)
+		return dependenciesAccessKnownKey(leftType, literal.Value(), leftPath)
 	} else {
 
 		// If we have a subexpression, we need to add all possible keys to the dependency map since we can't
@@ -223,13 +216,13 @@ func (c *dependencyContext) identifierDependencies(
 		return c.rootType, path, nil
 	default:
 		// This case is the item.item type expression, where the right item is the "identifier" in question.
-		return dependenciesBracketKey(currentType, node.IdentifierName, path)
+		return dependenciesAccessKnownKey(currentType, node.IdentifierName, path)
 	}
 }
 
 // dependenciesBracketKey is a helper function that extracts an item in a list, map, or object. This is used when an
 // identifier or a map accessor are encountered.
-func dependenciesBracketKey(currentType schema.Type, key any, path *PathTree) (schema.Type, *PathTree, error) {
+func dependenciesAccessKnownKey(currentType schema.Type, key any, path *PathTree) (schema.Type, *PathTree, error) {
 	switch currentType.TypeID() {
 	case schema.TypeIDList:
 		// Lists can only have numeric indexes, therefore we need to convert the types to integers. Since internally

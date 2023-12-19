@@ -59,7 +59,7 @@ type IntLiteral struct {
 
 // String returns a string representation of the integer contained.
 func (l *IntLiteral) String() string {
-	return strconv.Itoa(int(l.IntValue))
+	return strconv.FormatInt(l.IntValue, 10) // Format in base 10
 }
 
 // Value returns the integer contained.
@@ -143,13 +143,13 @@ func (d *DotNotation) String() string {
 
 // FunctionCall represents a call to a function with 0 or more parameters.
 type FunctionCall struct {
-	FuncIdentifier  *Identifier
-	ParameterInputs *ArgumentList
+	FuncIdentifier *Identifier
+	ArgumentInputs *ArgumentList
 }
 
 // Right returns nil, because an identifier does not branch left and right.
 func (f *FunctionCall) Right() Node {
-	return f.ParameterInputs
+	return f.ArgumentInputs
 }
 
 // Left returns nil, because an identifier does not branch left and right.
@@ -159,7 +159,7 @@ func (f *FunctionCall) Left() Node {
 
 // String returns the identifier name.
 func (f *FunctionCall) String() string {
-	return f.FuncIdentifier.String() + "(" + f.ParameterInputs.String() + ")"
+	return f.FuncIdentifier.String() + "(" + f.ArgumentInputs.String() + ")"
 }
 
 // ArgumentList is a list of expressions being used to specify values to input into function parameters.

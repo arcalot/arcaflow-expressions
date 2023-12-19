@@ -213,8 +213,8 @@ func (p *Parser) parseAfterIdentifier(identifier *Identifier) (Node, error) {
 			return nil, err
 		}
 		currentNode = &FunctionCall{
-			FuncIdentifier:  identifier,
-			ParameterInputs: argList,
+			FuncIdentifier: identifier,
+			ArgumentInputs: argList,
 		}
 	}
 	for {

@@ -44,7 +44,7 @@ func (c evaluateContext) evaluateFuncCall(node *ast.FunctionCall, data any) (any
 	functionSchema, found := c.functions[funcID.String()]
 	if found {
 		// Evaluate args
-		evaluatedArgs, err := c.evaluateParameters(node.ParameterInputs, data)
+		evaluatedArgs, err := c.evaluateParameters(node.ArgumentInputs, data)
 		if err != nil {
 			return nil, err
 		}
@@ -136,12 +136,13 @@ func evaluateMapAccess(data any, mapKey any) (any, error) {
 		// In case of slices we want integers. The user is responsible for converting the type to an integer themselves.
 		var sliceIndex int
 		switch t := mapKey.(type) {
-		case int:
-			sliceIndex = t
 		case int64:
 			sliceIndex = int(t)
+			if int64(sliceIndex) != t { // If the converted int doesn't match, it was truncated irreversibly.
+				return nil, fmt.Errorf("int64 %d specified is too large to fit in int on the current system", t)
+			}
 		default:
-			return nil, fmt.Errorf("unsupported map key type: %T", mapKey)
+			return nil, fmt.Errorf("unsupported slice index type '%T', expected int64", mapKey)
 		}
 		sliceLen := dataVal.Len()
 		if sliceLen <= sliceIndex {
