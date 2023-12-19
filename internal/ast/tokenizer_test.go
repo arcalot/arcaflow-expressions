@@ -137,6 +137,24 @@ func TestIntLiteral(t *testing.T) {
 	assert.Equals(t, tokenVal.TokenID, IdentifierToken)
 	assert.Equals(t, tokenVal.Value, "09")
 }
+
+func TestFloatLiteral(t *testing.T) {
+	input := "0.0 40.099 05.00"
+	tokenizer := initTokenizer(input, filename)
+	assert.Equals(t, tokenizer.hasNextToken(), true)
+	tokenVal, err := tokenizer.getNext()
+	assert.NoError(t, err)
+	assert.Equals(t, tokenVal.TokenID, FloatLiteralToken)
+	assert.Equals(t, tokenVal.Value, "0.0")
+	assert.Equals(t, tokenizer.hasNextToken(), true)
+	tokenVal, err = tokenizer.getNext()
+	assert.NoError(t, err)
+	assert.Equals(t, tokenVal.TokenID, FloatLiteralToken)
+	assert.Equals(t, tokenVal.Value, "40.099")
+	assert.Equals(t, tokenizer.hasNextToken(), true)
+	tokenVal, err = tokenizer.getNext()
+	assert.Error(t, err)
+}
 func TestBooleanLiterals(t *testing.T) {
 	input := "true && false || false"
 	tokenizer := initTokenizer(input, filename)

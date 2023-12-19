@@ -3,6 +3,7 @@ package expressions
 import (
 	"fmt"
 	"go.flow.arcalot.io/pluginsdk/schema"
+	"math"
 	"reflect"
 
 	"go.flow.arcalot.io/expressions/internal/ast"
@@ -34,8 +35,82 @@ func (c evaluateContext) evaluate(node ast.Node, data any) (any, error) {
 		return c.evaluateIdentifier(n, data)
 	case *ast.FunctionCall:
 		return c.evaluateFuncCall(n, data)
+	case *ast.BinaryOperation:
+		return c.evaluateBinaryOperation(n, data)
 	default:
 		return nil, fmt.Errorf("unsupported node type: %T", n)
+	}
+}
+
+type SupportedNumber interface {
+	int64 | float64
+}
+
+func evalNumericalOperation[T SupportedNumber](a, b T, oper ast.MathOperationType) (any, error) {
+	var aAsAny any = a
+	switch oper {
+	case ast.Invalid:
+		return T(0), fmt.Errorf("attempted to perform invalid operation")
+	case ast.Add:
+		return a + b, nil
+	case ast.Subtract:
+		return a - b, nil
+	case ast.Multiply:
+		return a * b, nil
+	case ast.Divide:
+		return a / b, nil
+	case ast.Modulus:
+		switch typedA := aAsAny.(type) {
+		case int64:
+			return typedA % int64(b), nil
+		case float64:
+			return math.Mod(float64(a), float64(b)), nil
+		}
+		return nil, fmt.Errorf("unsupported type for modulus: %T", a)
+	case ast.Power:
+		return T(math.Pow(float64(a), float64(b))), nil
+	case ast.Equals:
+		return a == b, nil
+	case ast.NotEquals:
+		return a != b, nil
+	case ast.GreaterThan:
+		return a > b, nil
+	case ast.LessThan:
+		return a < b, nil
+	case ast.GreaterThanEquals:
+		return a >= b, nil
+	case ast.LessThanEquals:
+		return a <= b, nil
+	case ast.And, ast.Or:
+		return T(0), fmt.Errorf("attempted logical operation %s on numeric input %T", oper, a)
+	default:
+		return nil, fmt.Errorf("eval missing case for logical operation %s", oper)
+	}
+}
+
+func (c evaluateContext) evaluateBinaryOperation(node *ast.BinaryOperation, data any) (any, error) {
+	leftEval, err := c.evaluate(node.Left(), data)
+	if err != nil {
+		return nil, err
+	}
+	rightEval, err := c.evaluate(node.Right(), data)
+	if err != nil {
+		return nil, err
+	}
+	rightType := reflect.TypeOf(rightEval)
+	leftType := reflect.TypeOf(leftEval)
+	if rightType != leftType {
+		return nil, fmt.Errorf("left type '%s' and right type '%s' of binary operation '%s' do not match",
+			leftType, rightType, node.Operation)
+	}
+
+	switch left := leftEval.(type) {
+	case int64:
+		return evalNumericalOperation(left, rightEval.(int64), node.Operation)
+	case float64:
+		return evalNumericalOperation(left, rightEval.(float64), node.Operation)
+	default:
+		return nil, fmt.Errorf("unsupported binary operation type: %T", left)
 	}
 }
 

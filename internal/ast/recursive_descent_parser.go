@@ -104,6 +104,22 @@ func (p *Parser) parseIntLiteral() (*IntLiteral, error) {
 	return literal, nil
 }
 
+func (p *Parser) parseFloatLiteral() (*FloatLiteral, error) {
+	if p.currentToken.TokenID != FloatLiteralToken {
+		return nil, &InvalidGrammarError{FoundToken: p.currentToken, ExpectedTokens: []TokenID{FloatLiteralToken}}
+	}
+	parsedFloat, err := strconv.ParseFloat(p.currentToken.Value, 64)
+	if err != nil {
+		return nil, err // Should not fail if the parser is set up correctly
+	}
+	literal := &FloatLiteral{FloatValue: parsedFloat}
+	err = p.advanceToken()
+	if err != nil {
+		return nil, err
+	}
+	return literal, nil
+}
+
 func (p *Parser) parseBooleanLiteral() (*BooleanLiteral, error) {
 	if p.currentToken.TokenID != BooleanLiteralToken {
 		return nil, &InvalidGrammarError{FoundToken: p.currentToken, ExpectedTokens: []TokenID{BooleanLiteralToken}}
@@ -431,6 +447,8 @@ func (p *Parser) parseRootValueOrAccess() (Node, error) {
 			firstNode, err = p.parseStringLiteral()
 		case IntLiteralToken:
 			firstNode, err = p.parseIntLiteral()
+		case FloatLiteralToken:
+			firstNode, err = p.parseFloatLiteral()
 		case BooleanLiteralToken:
 			firstNode, err = p.parseBooleanLiteral()
 		default:
@@ -457,7 +475,7 @@ func (p *Parser) parseRootValueOrAccess() (Node, error) {
 }
 
 var expStartIdentifierTokens = []TokenID{RootAccessToken, CurrentObjectAccessToken, IdentifierToken}
-var literalTokens = []TokenID{StringLiteralToken, IntLiteralToken, BooleanLiteralToken}
+var literalTokens = []TokenID{StringLiteralToken, IntLiteralToken, BooleanLiteralToken, FloatLiteralToken}
 var validStartTokens = append(expStartIdentifierTokens, literalTokens...)
 
 // parseSubExpression parses all the dot notations, map accesses, binary operations, and function calls.

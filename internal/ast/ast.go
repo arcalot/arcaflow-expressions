@@ -67,6 +67,22 @@ func (l *IntLiteral) Value() interface{} {
 	return l.IntValue
 }
 
+// FloatLiteral represents an integer literal value in the abstract syntax
+// tree.
+type FloatLiteral struct {
+	FloatValue float64
+}
+
+// String returns a string representation of the integer contained.
+func (l *FloatLiteral) String() string {
+	return strconv.FormatFloat(l.FloatValue, 'f', -1, 64)
+}
+
+// Value returns the integer contained.
+func (l *FloatLiteral) Value() interface{} {
+	return l.FloatValue
+}
+
 // BooleanLiteral represents a boolean literal value in the abstract syntax
 // tree. true or false
 type BooleanLiteral struct {

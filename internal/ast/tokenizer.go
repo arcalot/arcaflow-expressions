@@ -19,6 +19,8 @@ const (
 	StringLiteralToken TokenID = "string"
 	// IntLiteralToken represents an integer token. Must not start with 0.
 	IntLiteralToken TokenID = "int"
+	// FloatLiteralToken represents a float token.
+	FloatLiteralToken TokenID = "float"
 	// BooleanLiteralToken represents true or false.
 	BooleanLiteralToken TokenID = "boolean"
 	// BracketAccessDelimiterStartToken represents the token before an object
@@ -102,32 +104,33 @@ type tokenPattern struct {
 }
 
 var tokenPatterns = []tokenPattern{
-	{BooleanLiteralToken, regexp.MustCompile(`^true|false$`)},      // true or false. Note: This needs to be above IdentifierToken
-	{IntLiteralToken, regexp.MustCompile(`^0$|^[1-9]\d*$`)},        // Note: numbers that start with 0 are identifiers.
-	{IdentifierToken, regexp.MustCompile(`^\w+$`)},                 // Any valid object name
-	{StringLiteralToken, regexp.MustCompile(`^".*"$|^'.*'$`)},      // "string example"
-	{BracketAccessDelimiterStartToken, regexp.MustCompile(`^\[$`)}, // the [ in map["key"]
-	{BracketAccessDelimiterEndToken, regexp.MustCompile(`^]$`)},    // the ] in map["key"]
-	{ParenthesesStartToken, regexp.MustCompile(`^\($`)},            // (
-	{ParenthesesEndToken, regexp.MustCompile(`^\)$`)},              // )
-	{DotObjectAccessToken, regexp.MustCompile(`^\.$`)},             // .
-	{RootAccessToken, regexp.MustCompile(`^\$$`)},                  // $
-	{CurrentObjectAccessToken, regexp.MustCompile(`^@$`)},          // @
-	{EqualsToken, regexp.MustCompile(`^=$`)},                       // =
-	{SelectorToken, regexp.MustCompile(`^:$`)},                     // :
-	{FilterToken, regexp.MustCompile(`^\?$`)},                      // ?
-	{NegationToken, regexp.MustCompile(`^-$`)},                     // -
-	{WildcardMultiplyToken, regexp.MustCompile(`^\*$`)},            // *
-	{ListSeparatorToken, regexp.MustCompile(`^,$`)},                // ,
-	{DivideToken, regexp.MustCompile(`^/$`)},                       // /
-	{GreaterThanToken, regexp.MustCompile(`^>$`)},                  // >
-	{LessThanToken, regexp.MustCompile(`^<$`)},                     // <
-	{PlusToken, regexp.MustCompile(`^\+$`)},                        // +
-	{NotToken, regexp.MustCompile(`^!$`)},                          // !
-	{PowerToken, regexp.MustCompile(`^\^$`)},                       // ^
-	{ModulusToken, regexp.MustCompile(`^%$`)},                      // %
-	{AndToken, regexp.MustCompile(`^&$`)},                          // &&
-	{OrToken, regexp.MustCompile(`^\|$`)},                          // ||
+	{BooleanLiteralToken, regexp.MustCompile(`^true|false$`)},       // true or false. Note: This needs to be above IdentifierToken
+	{FloatLiteralToken, regexp.MustCompile(`^(0|^[1-9]\d*)\.\d+$`)}, // Like an integer, but with a period and digits after.
+	{IntLiteralToken, regexp.MustCompile(`^0$|^[1-9]\d*$`)},         // Note: numbers that start with 0 are identifiers.
+	{IdentifierToken, regexp.MustCompile(`^\w+$`)},                  // Any valid object name
+	{StringLiteralToken, regexp.MustCompile(`^".*"$|^'.*'$`)},       // "string example"
+	{BracketAccessDelimiterStartToken, regexp.MustCompile(`^\[$`)},  // the [ in map["key"]
+	{BracketAccessDelimiterEndToken, regexp.MustCompile(`^]$`)},     // the ] in map["key"]
+	{ParenthesesStartToken, regexp.MustCompile(`^\($`)},             // (
+	{ParenthesesEndToken, regexp.MustCompile(`^\)$`)},               // )
+	{DotObjectAccessToken, regexp.MustCompile(`^\.$`)},              // .
+	{RootAccessToken, regexp.MustCompile(`^\$$`)},                   // $
+	{CurrentObjectAccessToken, regexp.MustCompile(`^@$`)},           // @
+	{EqualsToken, regexp.MustCompile(`^=$`)},                        // =
+	{SelectorToken, regexp.MustCompile(`^:$`)},                      // :
+	{FilterToken, regexp.MustCompile(`^\?$`)},                       // ?
+	{NegationToken, regexp.MustCompile(`^-$`)},                      // -
+	{WildcardMultiplyToken, regexp.MustCompile(`^\*$`)},             // *
+	{ListSeparatorToken, regexp.MustCompile(`^,$`)},                 // ,
+	{DivideToken, regexp.MustCompile(`^/$`)},                        // /
+	{GreaterThanToken, regexp.MustCompile(`^>$`)},                   // >
+	{LessThanToken, regexp.MustCompile(`^<$`)},                      // <
+	{PlusToken, regexp.MustCompile(`^\+$`)},                         // +
+	{NotToken, regexp.MustCompile(`^!$`)},                           // !
+	{PowerToken, regexp.MustCompile(`^\^$`)},                        // ^
+	{ModulusToken, regexp.MustCompile(`^%$`)},                       // %
+	{AndToken, regexp.MustCompile(`^&$`)},                           // &&
+	{OrToken, regexp.MustCompile(`^\|$`)},                           // ||
 
 }
 
