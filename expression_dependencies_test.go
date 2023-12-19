@@ -1,7 +1,6 @@
 package expressions_test
 
 import (
-	"fmt"
 	"testing"
 
 	"go.arcalot.io/assert"
@@ -239,11 +238,8 @@ func TestFunctionDependencyResolution_dynamicTyping(t *testing.T) {
 		nil,
 		func(a any) (any, error) { return a, nil },
 		func(inputType []schema.Type) (schema.Type, error) {
-			if len(inputType) == 1 {
-				return inputType[0], nil
-			} else {
-				return nil, fmt.Errorf("incorrect param count")
-			}
+			assert.Equals(t, len(inputType), 1)
+			return inputType[0], nil
 		},
 	)
 	assert.NoError(t, err)

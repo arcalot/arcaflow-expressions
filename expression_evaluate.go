@@ -42,33 +42,30 @@ func (c evaluateContext) evaluate(node ast.Node, data any) (any, error) {
 func (c evaluateContext) evaluateFuncCall(node *ast.FunctionCall, data any) (any, error) {
 	funcID := node.FuncIdentifier
 	functionSchema, found := c.functions[funcID.String()]
-	if found {
-		// Evaluate args
-		evaluatedArgs, err := c.evaluateParameters(node.ArgumentInputs, data)
-		if err != nil {
-			return nil, err
-		}
-		expectedArgs := len(functionSchema.Parameters())
-		gotArgs := len(evaluatedArgs)
-		if gotArgs != expectedArgs {
-			return nil, fmt.Errorf(
-				"function '%s' called with incorrect number of arguments. Expected %d, got %d",
-				funcID, expectedArgs, gotArgs)
-		}
-		return functionSchema.Call(evaluatedArgs)
-	} else {
+	if !found {
 		return nil, fmt.Errorf("function with ID '%s' not found", funcID)
 	}
+	// Evaluate args
+	evaluatedArgs, err := c.evaluateParameters(node.ArgumentInputs)
+	if err != nil {
+		return nil, err
+	}
+	expectedArgs := len(functionSchema.Parameters())
+	gotArgs := len(evaluatedArgs)
+	if gotArgs != expectedArgs {
+		return nil, fmt.Errorf(
+			"function '%s' called with incorrect number of arguments. Expected %d, got %d",
+			funcID, expectedArgs, gotArgs)
+	}
+	return functionSchema.Call(evaluatedArgs)
 }
 
-func (c evaluateContext) evaluateParameters(node *ast.ArgumentList, _ any) ([]any, error) {
+func (c evaluateContext) evaluateParameters(node *ast.ArgumentList) ([]any, error) {
 	// A value for each argument
 	result := make([]any, node.NumChildren())
 	for i := 0; i < node.NumChildren(); i++ {
-		arg, err := node.GetChild(i)
-		if err != nil {
-			return nil, err
-		}
+		arg := node.Arguments[i]
+		var err error
 		result[i], err = c.evaluate(arg, c.rootData)
 		if err != nil {
 			return nil, err
