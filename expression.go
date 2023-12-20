@@ -27,13 +27,15 @@ func New(expressionString string) (Expression, error) {
 // Expression is an interface describing how expressions should behave.
 type Expression interface {
 	// Type evaluates the expression and evaluates the type on the specified schema.
-	Type(schema schema.Scope, workflowContext map[string][]byte) (schema.Type, error)
+	Type(schema schema.Scope, functions map[string]schema.Function, workflowContext map[string][]byte) (schema.Type, error)
 	// Dependencies traverses the passed scope and evaluates the items this expression depends on. This is useful to
 	// construct a dependency tree based on expressions.
-	Dependencies(schema schema.Type, workflowContext map[string][]byte) ([]Path, error)
+	// Returns the path to the object in the schema that it depends on, or nil if it's a literal that doesn't depend
+	// on it.
+	Dependencies(schema schema.Type, functions map[string]schema.Function, workflowContext map[string][]byte) ([]Path, error)
 	// Evaluate evaluates the expression on the given data set regardless of any
 	// schema. The caller is responsible for validating the expected schema.
-	Evaluate(data any, workflowContext map[string][]byte) (any, error)
+	Evaluate(data any, functions map[string]schema.CallableFunction, workflowContext map[string][]byte) (any, error)
 	// String returns the string representation of the expression.
 	String() string
 }
@@ -48,7 +50,7 @@ func (e expression) String() string {
 	return e.expression
 }
 
-func (e expression) Type(scope schema.Scope, workflowContext map[string][]byte) (schema.Type, error) {
+func (e expression) Type(scope schema.Scope, functions map[string]schema.Function, workflowContext map[string][]byte) (schema.Type, error) {
 	tree := &PathTree{
 		PathItem: "$",
 		Subtrees: nil,
@@ -57,6 +59,7 @@ func (e expression) Type(scope schema.Scope, workflowContext map[string][]byte) 
 		rootType:        scope,
 		rootPath:        tree,
 		workflowContext: workflowContext,
+		functions:       functions,
 	}
 	result, _, err := d.dependencies(e.ast, scope, tree)
 	if err != nil {
@@ -65,7 +68,7 @@ func (e expression) Type(scope schema.Scope, workflowContext map[string][]byte) 
 	return result, nil
 }
 
-func (e expression) Dependencies(scope schema.Type, workflowContext map[string][]byte) ([]Path, error) {
+func (e expression) Dependencies(scope schema.Type, functions map[string]schema.Function, workflowContext map[string][]byte) ([]Path, error) {
 	tree := &PathTree{
 		PathItem: "$",
 		Subtrees: nil,
@@ -74,6 +77,7 @@ func (e expression) Dependencies(scope schema.Type, workflowContext map[string][
 		rootType:        scope,
 		rootPath:        tree,
 		workflowContext: workflowContext,
+		functions:       functions,
 	}
 	_, _, err := d.dependencies(e.ast, scope, tree)
 	if err != nil {
@@ -82,8 +86,9 @@ func (e expression) Dependencies(scope schema.Type, workflowContext map[string][
 	return tree.Unpack(), nil
 }
 
-func (e expression) Evaluate(data any, workflowContext map[string][]byte) (any, error) {
+func (e expression) Evaluate(data any, functions map[string]schema.CallableFunction, workflowContext map[string][]byte) (any, error) {
 	context := &evaluateContext{
+		functions:       functions,
 		rootData:        data,
 		workflowContext: workflowContext,
 	}

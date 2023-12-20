@@ -19,6 +19,7 @@ func ExampleExpression_Evaluate() {
 			},
 		},
 		nil,
+		nil,
 	)
 	if err != nil {
 		panic(err)

@@ -10,7 +10,7 @@ import (
 var filename = "example.go"
 
 func TestTokenizer(t *testing.T) {
-	input := `$.steps.read_kubeconfig.output["success"].credentials`
+	input := `$.steps.read_kubeconfig.output["success"].credentials[f(1,2)]`
 	tokenizer := initTokenizer(input, filename)
 	expectedValue := []TokenValue{
 		{"$", RootAccessToken, filename, 1, 1},
@@ -25,6 +25,14 @@ func TestTokenizer(t *testing.T) {
 		{"]", BracketAccessDelimiterEndToken, filename, 1, 41},
 		{".", DotObjectAccessToken, filename, 1, 42},
 		{"credentials", IdentifierToken, filename, 1, 43},
+		{"[", BracketAccessDelimiterStartToken, filename, 1, 54},
+		{"f", IdentifierToken, filename, 1, 55},
+		{"(", ArgListStartToken, filename, 1, 56},
+		{"1", IntLiteralToken, filename, 1, 57},
+		{",", ListSeparatorToken, filename, 1, 58},
+		{"2", IntLiteralToken, filename, 1, 59},
+		{")", ArgListEndToken, filename, 1, 60},
+		{"]", BracketAccessDelimiterEndToken, filename, 1, 61},
 	}
 	for _, expected := range expectedValue {
 		assert.Equals(t, tokenizer.hasNextToken(), true)
@@ -88,19 +96,20 @@ func TestInvalidToken(t *testing.T) {
 }
 
 func TestIntLiteral(t *testing.T) {
-	input := "90 09"
+	input := "70 07"
 	tokenizer := initTokenizer(input, filename)
 	assert.Equals(t, tokenizer.hasNextToken(), true)
 	tokenVal, err := tokenizer.getNext()
 	assert.Nil(t, err)
 	assert.Equals(t, tokenVal.TokenID, IntLiteralToken)
-	assert.Equals(t, tokenVal.Value, "90")
+	assert.Equals(t, tokenVal.Value, "70")
 	assert.Equals(t, tokenizer.hasNextToken(), true)
-	// Numbers that start with 0 appear to cause error in scanner
+	// Numbers that start with 0 are interpreted as octal by the string tokenizer,
+	// resulting in an error printed to stderr. It doesn't change the behavior.
 	tokenVal, err = tokenizer.getNext()
 	assert.Nil(t, err)
 	assert.Equals(t, tokenVal.TokenID, IdentifierToken)
-	assert.Equals(t, tokenVal.Value, "09")
+	assert.Equals(t, tokenVal.Value, "07")
 }
 
 func TestWildcard(t *testing.T) {

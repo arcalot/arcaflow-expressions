@@ -2,6 +2,7 @@ package expressions
 
 import (
 	"fmt"
+	"go.flow.arcalot.io/pluginsdk/schema"
 	"reflect"
 
 	"go.flow.arcalot.io/expressions/internal/ast"
@@ -11,6 +12,7 @@ import (
 // don't need to pass the data, root data, and workflow context along with each function call.
 type evaluateContext struct {
 	rootData        any
+	functions       map[string]schema.CallableFunction
 	workflowContext map[string][]byte
 }
 
@@ -18,18 +20,58 @@ type evaluateContext struct {
 // to the root data to evaluate subexpressions, as well as the workflow context to pull in additional files. It will
 // return the evaluated data.
 func (c evaluateContext) evaluate(node ast.Node, data any) (any, error) {
+	// First checks for any literal type, since it's generic.
+	if literal, isLiteral := node.(ast.ValueLiteral); isLiteral {
+		return literal.Value(), nil
+	}
+	// Checks non-generic types.
 	switch n := node.(type) {
 	case *ast.DotNotation:
 		return c.evaluateDotNotation(n, data)
 	case *ast.BracketAccessor:
 		return c.evaluateBracketAccessor(n, data)
-	case *ast.Key:
-		return c.evaluateKey(n, data)
 	case *ast.Identifier:
 		return c.evaluateIdentifier(n, data)
+	case *ast.FunctionCall:
+		return c.evaluateFuncCall(n, data)
 	default:
-		return nil, fmt.Errorf("unsupported  node type: %T", n)
+		return nil, fmt.Errorf("unsupported node type: %T", n)
 	}
+}
+
+func (c evaluateContext) evaluateFuncCall(node *ast.FunctionCall, data any) (any, error) {
+	funcID := node.FuncIdentifier
+	functionSchema, found := c.functions[funcID.String()]
+	if !found {
+		return nil, fmt.Errorf("function with ID '%s' not found", funcID)
+	}
+	// Evaluate args
+	evaluatedArgs, err := c.evaluateParameters(node.ArgumentInputs)
+	if err != nil {
+		return nil, err
+	}
+	expectedArgs := len(functionSchema.Parameters())
+	gotArgs := len(evaluatedArgs)
+	if gotArgs != expectedArgs {
+		return nil, fmt.Errorf(
+			"function '%s' called with incorrect number of arguments. Expected %d, got %d",
+			funcID, expectedArgs, gotArgs)
+	}
+	return functionSchema.Call(evaluatedArgs)
+}
+
+func (c evaluateContext) evaluateParameters(node *ast.ArgumentList) ([]any, error) {
+	// A value for each argument
+	result := make([]any, node.NumChildren())
+	for i := 0; i < node.NumChildren(); i++ {
+		arg := node.Arguments[i]
+		var err error
+		result[i], err = c.evaluate(arg, c.rootData)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
 }
 
 // Evaluates a DotNotation node.
@@ -55,26 +97,11 @@ func (c evaluateContext) evaluateBracketAccessor(node *ast.BracketAccessor, data
 		return nil, err
 	}
 	// Next, evaluates the item inside the brackets. Can be any valid literal or something that evaluates into a value.
-	mapKey, err := c.evaluate(&node.RightKey, leftResult)
+	mapKey, err := c.evaluate(node.RightExpression, leftResult)
 	if err != nil {
 		return nil, err
 	}
 	return evaluateMapAccess(data, mapKey)
-}
-
-// Evaluates a key, which is the item looked up in a map access
-//
-// A map access has the form `item[itemkey]`, and the key can be either a literal (e.g. string) or a
-// subexpression, which needs to be evaluated in its own right.
-func (c evaluateContext) evaluateKey(node *ast.Key, data any) (any, error) {
-	switch {
-	case node.Literal != nil:
-		return node.Literal.Value(), nil
-	case node.SubExpression != nil:
-		return c.evaluate(node.SubExpression, data)
-	default:
-		return nil, fmt.Errorf("bug: neither literal, nor subexpression are set on key")
-	}
 }
 
 // Evaluates an identifier
@@ -104,16 +131,17 @@ func evaluateMapAccess(data any, mapKey any) (any, error) {
 		return indexValue.Interface(), nil
 	case reflect.Slice:
 		// In case of slices we want integers. The user is responsible for converting the type to an integer themselves.
-		var sliceIndex int
-		switch t := mapKey.(type) {
-		case int:
-			sliceIndex = t
-		default:
-			return nil, fmt.Errorf("unsupported map key type: %T", mapKey)
+		asInt64, isInt64 := mapKey.(int64)
+		if !isInt64 {
+			return nil, fmt.Errorf("unsupported slice index type '%T', expected int64", mapKey)
+		}
+		sliceIndex := int(asInt64)
+		if int64(sliceIndex) != asInt64 {
+			return nil, fmt.Errorf("int64 %d specified is too large for a slice index on the current system", asInt64)
 		}
 		sliceLen := dataVal.Len()
 		if sliceLen <= sliceIndex {
-			return nil, fmt.Errorf("index %d is larger than the list items (%d)", sliceIndex, sliceLen)
+			return nil, fmt.Errorf("index %d is larger than the list items length (%d)", sliceIndex, sliceLen)
 		}
 		indexValue := dataVal.Index(sliceIndex)
 		return indexValue.Interface(), nil

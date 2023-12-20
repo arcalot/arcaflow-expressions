@@ -2,7 +2,10 @@
 // components of the abstract tree representation of use of the grammar.
 package ast
 
-import "strconv"
+import (
+	"fmt"
+	"strconv"
+)
 
 const (
 	invalid = "INVALID/MISSING"
@@ -12,9 +15,17 @@ const (
 // Left() and Right() can return nil for any node types that do not
 // have left and right sides.
 type Node interface {
+	String() string
+}
+
+type BinaryNode interface {
 	Left() Node
 	Right() Node
-	String() string
+}
+
+type NNode interface {
+	NumChildren() int
+	GetChild(int) (Node, error)
 }
 
 // ValueLiteral represents any kind of literals that can be represented
@@ -43,12 +54,12 @@ func (l *StringLiteral) Value() interface{} {
 // IntLiteral represents an integer literal value in the abstract syntax
 // tree.
 type IntLiteral struct {
-	IntValue int
+	IntValue int64
 }
 
 // String returns a string representation of the integer contained.
 func (l *IntLiteral) String() string {
-	return strconv.Itoa(l.IntValue)
+	return strconv.FormatInt(l.IntValue, 10) // Format in base 10
 }
 
 // Value returns the integer contained.
@@ -56,52 +67,18 @@ func (l *IntLiteral) Value() interface{} {
 	return l.IntValue
 }
 
-// Key represents any of the valid values that can be used in map/object
-// bracket access. It can be either a sub-expression, represented as a
-// Node, or as any supported literal, represented as a ValueLiteral.
-// The one that is not being represented will be nil.
-type Key struct {
-	// A key can be either a literal or
-	// a sub-expression that can be evaluated
-	SubExpression Node
-	Literal       ValueLiteral
-}
-
-// Right returns nil, because a key does not branch left and right.
-func (k *Key) Right() Node {
-	return nil
-}
-
-// Left returns nil, because a key does not branch left and right.
-func (k *Key) Left() Node {
-	return nil
-}
-
-// String returns the string from either the literal, or its sub-expression,
-// surrounded by '(' and ')'.
-func (k *Key) String() string {
-	switch {
-	case k.Literal != nil:
-		return k.Literal.String()
-	case k.SubExpression != nil:
-		return "(" + k.SubExpression.String() + ")"
-	default:
-		return invalid
-	}
-}
-
 // BracketAccessor represents a part of the abstract syntax tree that is accessing
 // the value at a key in a map/object, or index of a list.
 // The format is the value to the left, followed by an open/right square bracket, followed
 // by the key, followed by a close/left square bracket.
 type BracketAccessor struct {
-	LeftNode Node
-	RightKey Key
+	LeftNode        Node
+	RightExpression Node
 }
 
 // Right returns the key.
 func (m *BracketAccessor) Right() Node {
-	return &m.RightKey
+	return m.RightExpression
 }
 
 // Left returns the node being accessed.
@@ -112,22 +89,12 @@ func (m *BracketAccessor) Left() Node {
 // String returns the string from the accessed node, followed by '[', followed
 // by the string from the key, followed by ']'.
 func (m *BracketAccessor) String() string {
-	return m.LeftNode.String() + "[" + m.RightKey.String() + "]"
+	return m.LeftNode.String() + "[" + m.RightExpression.String() + "]"
 }
 
 // Identifier represents a valid identifier in the abstract syntax tree.
 type Identifier struct {
 	IdentifierName string
-}
-
-// Right returns nil, because an identifier does not branch left and right.
-func (i *Identifier) Right() Node {
-	return nil
-}
-
-// Left returns nil, because an identifier does not branch left and right.
-func (i *Identifier) Left() Node {
-	return nil
 }
 
 // String returns the identifier name.
@@ -172,4 +139,53 @@ func (d *DotNotation) String() string {
 		right = invalid
 	}
 	return left + "." + right
+}
+
+// FunctionCall represents a call to a function with 0 or more parameters.
+type FunctionCall struct {
+	FuncIdentifier *Identifier
+	ArgumentInputs *ArgumentList
+}
+
+// Right returns nil, because an identifier does not branch left and right.
+func (f *FunctionCall) Right() Node {
+	return f.ArgumentInputs
+}
+
+// Left returns nil, because an identifier does not branch left and right.
+func (f *FunctionCall) Left() Node {
+	return f.FuncIdentifier
+}
+
+// String returns the identifier name.
+func (f *FunctionCall) String() string {
+	return f.FuncIdentifier.String() + "(" + f.ArgumentInputs.String() + ")"
+}
+
+// ArgumentList is a list of expressions being used to specify values to input into function parameters.
+type ArgumentList struct {
+	Arguments []Node
+}
+
+func (l *ArgumentList) NumChildren() int {
+	return len(l.Arguments)
+}
+func (l *ArgumentList) GetChild(index int) (Node, error) {
+	if index >= len(l.Arguments) {
+		return nil, fmt.Errorf("index requested is out of bounds. Got %d, expected less than %d",
+			index, len(l.Arguments))
+	}
+	return l.Arguments[index], nil
+}
+
+// String returns the identifier name.
+func (l *ArgumentList) String() string {
+	if len(l.Arguments) == 0 {
+		return ""
+	}
+	result := l.Arguments[0].String()
+	for i := 1; i < len(l.Arguments); i++ {
+		result += ", " + l.Arguments[i].String()
+	}
+	return result
 }

@@ -27,12 +27,10 @@ const (
 	// access. The '[' in 'obj["key"]'.
 	//nolint:gosec
 	BracketAccessDelimiterEndToken TokenID = "map-delimiter-end"
-	// ExpressionStartToken represents the start token of a sub-expression
-	// in an object bracket access. The '(' in 'obj[($.a)]'.
-	ExpressionStartToken TokenID = "expression-start"
-	// ExpressionEndToken represents the end token of a sub-expression in
-	// an object bracket access. The ')' in 'obj[($.a)]'.
-	ExpressionEndToken TokenID = "expression-end"
+	// ArgListStartToken represents the start token of a argument list. '('
+	ArgListStartToken TokenID = "args-start"
+	// ArgListEndToken represents the closing of the argument list. ')'
+	ArgListEndToken TokenID = "args-end"
 	// DotObjectAccessToken represents the '.' token in 'a.b' (dot notation).
 	DotObjectAccessToken TokenID = "object-access"
 	// RootAccessToken represents the token that identifies accessing the
@@ -53,6 +51,8 @@ const (
 	NegationToken TokenID = "negation-sign"
 	// WildcardToken represents a wildcard token '*'.
 	WildcardToken TokenID = "wildcard"
+	// ListSeparatorToken represents a comma in a parameter list
+	ListSeparatorToken TokenID = "list-separator"
 	// UnknownToken is a placeholder for when there was an error in the token.
 	UnknownToken TokenID = "error"
 )
@@ -87,8 +87,8 @@ var tokenPatterns = []tokenPattern{
 	{StringLiteralToken, regexp.MustCompile(`^".*"$|^'.*'$`)},      // "string example"
 	{BracketAccessDelimiterStartToken, regexp.MustCompile(`^\[$`)}, // the [ in map["key"]
 	{BracketAccessDelimiterEndToken, regexp.MustCompile(`^]$`)},    // the ] in map["key"]
-	{ExpressionStartToken, regexp.MustCompile(`^\($`)},             // (
-	{ExpressionEndToken, regexp.MustCompile(`^\)$`)},               // )
+	{ArgListStartToken, regexp.MustCompile(`^\($`)},                // (
+	{ArgListEndToken, regexp.MustCompile(`^\)$`)},                  // )
 	{DotObjectAccessToken, regexp.MustCompile(`^\.$`)},             // .
 	{RootAccessToken, regexp.MustCompile(`^\$$`)},                  // $
 	{CurrentObjectAccessToken, regexp.MustCompile(`^@$`)},          // @
@@ -97,6 +97,7 @@ var tokenPatterns = []tokenPattern{
 	{FilterToken, regexp.MustCompile(`^\?$`)},                      // ?
 	{NegationToken, regexp.MustCompile(`^-$`)},                     // -
 	{WildcardToken, regexp.MustCompile(`^\*$`)},                    // *
+	{ListSeparatorToken, regexp.MustCompile(`^,$`)},                // ,
 }
 
 // initTokenizer initializes the tokenizer struct with the given expression.

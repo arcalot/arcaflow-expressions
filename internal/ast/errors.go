@@ -22,8 +22,8 @@ type InvalidGrammarError struct {
 }
 
 func (e *InvalidGrammarError) Error() string {
-	errorMsg := fmt.Sprintf("Token \"%s\" placed in invalid configuration in %s at line %d:%d.",
-		e.FoundToken.Value, e.FoundToken.Filename, e.FoundToken.Line, e.FoundToken.Column)
+	errorMsg := fmt.Sprintf("Token \"%s\" of ID %s placed in invalid configuration in %s at line %d:%d.",
+		e.FoundToken.Value, e.FoundToken.TokenID, e.FoundToken.Filename, e.FoundToken.Line, e.FoundToken.Column)
 	switch {
 	case e.ExpectedTokens == nil || len(e.ExpectedTokens) == 0:
 		errorMsg += " Expected end of expression."
