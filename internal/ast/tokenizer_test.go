@@ -153,7 +153,7 @@ func TestFloatLiteral(t *testing.T) {
 	assert.Equals(t, tokenVal.TokenID, FloatLiteralToken)
 	assert.Equals(t, tokenVal.Value, "40.099")
 	assert.Equals(t, tokenizer.hasNextToken(), true)
-	tokenVal, err = tokenizer.getNext()
+	_, err = tokenizer.getNext()
 	assert.Error(t, err)
 }
 func TestBooleanLiterals(t *testing.T) {

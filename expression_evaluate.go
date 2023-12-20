@@ -50,7 +50,7 @@ func evalNumericalOperation[T SupportedNumber](a, b T, oper ast.MathOperationTyp
 	var aAsAny any = a
 	switch oper {
 	case ast.Invalid:
-		return T(0), fmt.Errorf("attempted to perform invalid operation")
+		return nil, fmt.Errorf("attempted to perform invalid operation")
 	case ast.Add:
 		return a + b, nil
 	case ast.Subtract:
@@ -82,9 +82,65 @@ func evalNumericalOperation[T SupportedNumber](a, b T, oper ast.MathOperationTyp
 	case ast.LessThanEquals:
 		return a <= b, nil
 	case ast.And, ast.Or:
-		return T(0), fmt.Errorf("attempted logical operation %s on numeric input %T", oper, a)
+		return nil, fmt.Errorf("attempted logical operation %s on numeric input %T", oper, a)
 	default:
-		return nil, fmt.Errorf("eval missing case for logical operation %s", oper)
+		return nil, fmt.Errorf("numeric eval missing case for logical operation %s", oper)
+	}
+}
+func evalBooleanOperation(a, b bool, oper ast.MathOperationType) (any, error) {
+	switch oper {
+	case ast.Invalid:
+		return nil, fmt.Errorf("attempted to perform invalid operation")
+	case ast.Power, ast.Modulus, ast.Divide, ast.Multiply, ast.Subtract, ast.Add:
+		return nil, fmt.Errorf("attempted to perform math operation '%s' on boolean", oper)
+	case ast.GreaterThan, ast.LessThan, ast.GreaterThanEquals, ast.LessThanEquals:
+		return nil, fmt.Errorf("attempted to perform invalid operation '%s' on boolean", oper)
+	case ast.Equals:
+		return a == b, nil
+	case ast.NotEquals:
+		return a != b, nil
+	case ast.And:
+		return a && b, nil
+	case ast.Or:
+		return a || b, nil
+	default:
+		return nil, fmt.Errorf("numeric eval missing case for logical operation %s", oper)
+	}
+}
+
+func evalStringOperation(a, b string, oper ast.MathOperationType) (any, error) {
+	switch oper {
+	case ast.Invalid:
+		return nil, fmt.Errorf("attempted to perform invalid operation")
+	case ast.Add:
+		// Concatenate
+		return a + b, nil
+	case ast.Subtract:
+		return nil, fmt.Errorf("strings cannot be subtracted")
+	case ast.Multiply:
+		return nil, fmt.Errorf("strings cannot be multiplied")
+	case ast.Divide:
+		return nil, fmt.Errorf("strings cannot be divided")
+	case ast.Modulus:
+		return nil, fmt.Errorf("strings cannot be divided for remainder")
+	case ast.Power:
+		return nil, fmt.Errorf("strings cannot be raised to a power")
+	case ast.Equals:
+		return a == b, nil
+	case ast.NotEquals:
+		return a != b, nil
+	case ast.GreaterThan:
+		return a > b, nil
+	case ast.LessThan:
+		return a < b, nil
+	case ast.GreaterThanEquals:
+		return a >= b, nil
+	case ast.LessThanEquals:
+		return a <= b, nil
+	case ast.And, ast.Or:
+		return nil, fmt.Errorf("attempted logical operation %s on string input", oper)
+	default:
+		return nil, fmt.Errorf("string eval missing case for logical operation %s", oper)
 	}
 }
 
@@ -109,8 +165,12 @@ func (c evaluateContext) evaluateBinaryOperation(node *ast.BinaryOperation, data
 		return evalNumericalOperation(left, rightEval.(int64), node.Operation)
 	case float64:
 		return evalNumericalOperation(left, rightEval.(float64), node.Operation)
+	case string:
+		return evalStringOperation(left, rightEval.(string), node.Operation)
+	case bool:
+		return evalBooleanOperation(left, rightEval.(bool), node.Operation)
 	default:
-		return nil, fmt.Errorf("unsupported binary operation type: %T", left)
+		return nil, fmt.Errorf("unsupported type to perform binary operation on: %T", left)
 	}
 }
 
