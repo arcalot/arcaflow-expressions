@@ -160,6 +160,7 @@ func TestRootStrLiteral(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, parsedResult)
 	assert.InstanceOf[*StringLiteral](t, parsedResult)
+	assert.Equals(t, parsedResult.(*StringLiteral).StrValue, "test")
 }
 
 func TestDotNotation(t *testing.T) {
