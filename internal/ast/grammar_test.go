@@ -160,6 +160,8 @@ func TestRootStrLiteral(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, parsedResult)
+	assert.InstanceOf[*StringLiteral](t, parsedResult)
+	assert.Equals(t, parsedResult.(*StringLiteral).StrValue, "test")
 }
 
 func TestDotNotation(t *testing.T) {
@@ -398,8 +400,8 @@ func TestEmptyFunctionExpression(t *testing.T) {
 	expression := "funcName()"
 
 	root := &FunctionCall{
-		FuncIdentifier:  &Identifier{IdentifierName: "funcName"},
-		ParameterInputs: &ArgumentList{Arguments: make([]Node, 0)},
+		FuncIdentifier: &Identifier{IdentifierName: "funcName"},
+		ArgumentInputs: &ArgumentList{Arguments: make([]Node, 0)},
 	}
 
 	p, err := InitParser(expression, t.Name())
@@ -426,8 +428,8 @@ func TestOneArgFunctionExpression(t *testing.T) {
 	arg1.LeftAccessibleNode = &Identifier{IdentifierName: "$"}
 	arg1.RightAccessIdentifier = &Identifier{IdentifierName: "a"}
 	root := &FunctionCall{
-		FuncIdentifier:  &Identifier{IdentifierName: "funcName"},
-		ParameterInputs: &ArgumentList{Arguments: []Node{arg1}},
+		FuncIdentifier: &Identifier{IdentifierName: "funcName"},
+		ArgumentInputs: &ArgumentList{Arguments: []Node{arg1}},
 	}
 
 	p, err := InitParser(expression, t.Name())
@@ -455,8 +457,8 @@ func TestMultiArgFunctionExpression(t *testing.T) {
 	arg2 := &IntLiteral{IntValue: 5}
 	arg3 := &StringLiteral{StrValue: "test"}
 	root := &FunctionCall{
-		FuncIdentifier:  &Identifier{IdentifierName: "funcName"},
-		ParameterInputs: &ArgumentList{Arguments: []Node{arg1, arg2, arg3}},
+		FuncIdentifier: &Identifier{IdentifierName: "funcName"},
+		ArgumentInputs: &ArgumentList{Arguments: []Node{arg1, arg2, arg3}},
 	}
 
 	p, err := InitParser(expression, t.Name())
@@ -480,8 +482,8 @@ func TestChainedFunctionExpression(t *testing.T) {
 	expression := "funcName().a"
 
 	functionCall := &FunctionCall{
-		FuncIdentifier:  &Identifier{IdentifierName: "funcName"},
-		ParameterInputs: &ArgumentList{Arguments: make([]Node, 0)},
+		FuncIdentifier: &Identifier{IdentifierName: "funcName"},
+		ArgumentInputs: &ArgumentList{Arguments: make([]Node, 0)},
 	}
 	root := &DotNotation{
 		LeftAccessibleNode:    functionCall,

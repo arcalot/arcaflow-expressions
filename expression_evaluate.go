@@ -34,7 +34,7 @@ func (c evaluateContext) evaluate(node ast.Node, data any) (any, error) {
 	case *ast.Identifier:
 		return c.evaluateIdentifier(n, data)
 	case *ast.FunctionCall:
-		return c.evaluateFuncCall(n, data)
+		return c.evaluateFuncCall(n)
 	case *ast.BinaryOperation:
 		return c.evaluateBinaryOperation(n, data)
 	default:
@@ -114,36 +114,33 @@ func (c evaluateContext) evaluateBinaryOperation(node *ast.BinaryOperation, data
 	}
 }
 
-func (c evaluateContext) evaluateFuncCall(node *ast.FunctionCall, data any) (any, error) {
+func (c evaluateContext) evaluateFuncCall(node *ast.FunctionCall) (any, error) {
 	funcID := node.FuncIdentifier
 	functionSchema, found := c.functions[funcID.String()]
-	if found {
-		// Evaluate args
-		evaluatedArgs, err := c.evaluateParameters(node.ParameterInputs, data)
-		if err != nil {
-			return nil, err
-		}
-		expectedArgs := len(functionSchema.Parameters())
-		gotArgs := len(evaluatedArgs)
-		if gotArgs != expectedArgs {
-			return nil, fmt.Errorf(
-				"function '%s' called with incorrect number of arguments. Expected %d, got %d",
-				funcID, expectedArgs, gotArgs)
-		}
-		return functionSchema.Call(evaluatedArgs)
-	} else {
+	if !found {
 		return nil, fmt.Errorf("function with ID '%s' not found", funcID)
 	}
+	// Evaluate args
+	evaluatedArgs, err := c.evaluateParameters(node.ArgumentInputs)
+	if err != nil {
+		return nil, err
+	}
+	expectedArgs := len(functionSchema.Parameters())
+	gotArgs := len(evaluatedArgs)
+	if gotArgs != expectedArgs {
+		return nil, fmt.Errorf(
+			"function '%s' called with incorrect number of arguments. Expected %d, got %d",
+			funcID, expectedArgs, gotArgs)
+	}
+	return functionSchema.Call(evaluatedArgs)
 }
 
-func (c evaluateContext) evaluateParameters(node *ast.ArgumentList, _ any) ([]any, error) {
+func (c evaluateContext) evaluateParameters(node *ast.ArgumentList) ([]any, error) {
 	// A value for each argument
 	result := make([]any, node.NumChildren())
 	for i := 0; i < node.NumChildren(); i++ {
-		arg, err := node.GetChild(i)
-		if err != nil {
-			return nil, err
-		}
+		arg := node.Arguments[i]
+		var err error
 		result[i], err = c.evaluate(arg, c.rootData)
 		if err != nil {
 			return nil, err
@@ -209,18 +206,17 @@ func evaluateMapAccess(data any, mapKey any) (any, error) {
 		return indexValue.Interface(), nil
 	case reflect.Slice:
 		// In case of slices we want integers. The user is responsible for converting the type to an integer themselves.
-		var sliceIndex int
-		switch t := mapKey.(type) {
-		case int:
-			sliceIndex = t
-		case int64:
-			sliceIndex = int(t)
-		default:
-			return nil, fmt.Errorf("unsupported map key type: %T", mapKey)
+		asInt64, isInt64 := mapKey.(int64)
+		if !isInt64 {
+			return nil, fmt.Errorf("unsupported slice index type '%T', expected int64", mapKey)
+		}
+		sliceIndex := int(asInt64)
+		if int64(sliceIndex) != asInt64 {
+			return nil, fmt.Errorf("int64 %d specified is too large for a slice index on the current system", asInt64)
 		}
 		sliceLen := dataVal.Len()
 		if sliceLen <= sliceIndex {
-			return nil, fmt.Errorf("index %d is larger than the list items (%d)", sliceIndex, sliceLen)
+			return nil, fmt.Errorf("index %d is larger than the list items length (%d)", sliceIndex, sliceLen)
 		}
 		indexValue := dataVal.Index(sliceIndex)
 		return indexValue.Interface(), nil

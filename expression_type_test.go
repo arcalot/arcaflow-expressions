@@ -1,7 +1,6 @@
 package expressions_test
 
 import (
-	"fmt"
 	"reflect"
 	"testing"
 
@@ -106,11 +105,8 @@ func TestFunctionTypeResolution_dynamicTyping(t *testing.T) {
 		nil,
 		func(a any) (any, error) { return a, nil },
 		func(inputType []schema.Type) (schema.Type, error) {
-			if len(inputType) == 1 {
-				return inputType[0], nil
-			} else {
-				return nil, fmt.Errorf("incorrect param count")
-			}
+			assert.Equals(t, len(inputType), 1)
+			return inputType[0], nil
 		},
 	)
 	assert.NoError(t, err)
@@ -158,11 +154,8 @@ func TestFunctionTypeResolution_advancedDynamicTyping(t *testing.T) {
 			return result.Interface(), nil
 		},
 		func(inputType []schema.Type) (schema.Type, error) {
-			if len(inputType) == 1 {
-				return schema.NewListSchema(inputType[0], nil, nil), nil
-			} else {
-				return nil, fmt.Errorf("incorrect param count")
-			}
+			assert.Equals(t, len(inputType), 1)
+			return schema.NewListSchema(inputType[0], nil, nil), nil
 		},
 	)
 	assert.NoError(t, err)

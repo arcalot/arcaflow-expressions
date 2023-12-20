@@ -131,7 +131,6 @@ var tokenPatterns = []tokenPattern{
 	{ModulusToken, regexp.MustCompile(`^%$`)},                       // %
 	{AndToken, regexp.MustCompile(`^&$`)},                           // &&
 	{OrToken, regexp.MustCompile(`^\|$`)},                           // ||
-
 }
 
 // initTokenizer initializes the tokenizer struct with the given expression.

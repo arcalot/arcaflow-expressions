@@ -491,8 +491,8 @@ func (p *Parser) parseChainedValueOrAccess(rootNode Node) (Node, error) {
 			return nil, err
 		}
 		currentNode = &FunctionCall{
-			FuncIdentifier:  identifier,
-			ParameterInputs: argList,
+			FuncIdentifier: identifier,
+			ArgumentInputs: argList,
 		}
 	}
 	for {
