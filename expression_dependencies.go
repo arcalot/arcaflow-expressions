@@ -220,7 +220,7 @@ func (c *dependencyContext) identifierDependencies(
 	}
 }
 
-// dependenciesBracketKey is a helper function that extracts an item in a list, map, or object. This is used when an
+// dependenciesAccessKnownKey is a helper function that extracts an item in a list, map, or object. This is used when an
 // identifier or a map accessor are encountered.
 func dependenciesAccessKnownKey(currentType schema.Type, key any, path *PathTree) (schema.Type, *PathTree, error) {
 	switch currentType.TypeID() {

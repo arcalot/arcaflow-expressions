@@ -131,19 +131,17 @@ func evaluateMapAccess(data any, mapKey any) (any, error) {
 		return indexValue.Interface(), nil
 	case reflect.Slice:
 		// In case of slices we want integers. The user is responsible for converting the type to an integer themselves.
-		var sliceIndex int
-		switch t := mapKey.(type) {
-		case int64:
-			sliceIndex = int(t)
-			if int64(sliceIndex) != t { // If the converted int doesn't match, it was truncated irreversibly.
-				return nil, fmt.Errorf("int64 %d specified is too large to fit in int on the current system", t)
-			}
-		default:
+		asInt64, isInt64 := mapKey.(int64)
+		if !isInt64 {
 			return nil, fmt.Errorf("unsupported slice index type '%T', expected int64", mapKey)
+		}
+		sliceIndex := int(asInt64)
+		if int64(sliceIndex) != asInt64 {
+			return nil, fmt.Errorf("int64 %d specified is too large for a slice index on the current system", asInt64)
 		}
 		sliceLen := dataVal.Len()
 		if sliceLen <= sliceIndex {
-			return nil, fmt.Errorf("index %d is larger than the list items (%d)", sliceIndex, sliceLen)
+			return nil, fmt.Errorf("index %d is larger than the list items length (%d)", sliceIndex, sliceLen)
 		}
 		indexValue := dataVal.Index(sliceIndex)
 		return indexValue.Interface(), nil
