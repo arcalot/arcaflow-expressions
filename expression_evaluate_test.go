@@ -39,6 +39,16 @@ var strToStrFunc, strToStrFuncErr = schema.NewCallableFunction(
 		return a, nil
 	},
 )
+var intToFloatFunc, intToFloatFuncErr = schema.NewCallableFunction(
+	"intToFloat",
+	[]schema.Type{schema.NewIntSchema(nil, nil, nil)},
+	schema.NewFloatSchema(nil, nil, nil),
+	true,
+	nil,
+	func(a int64) (float64, error) {
+		return float64(a), nil
+	},
+)
 
 var twoIntToIntFunc, twoIntToIntFuncErr = schema.NewCallableFunction(
 	"multiply",
@@ -222,6 +232,24 @@ var testData = map[string]struct {
 		false,
 		[]string{"test", "test"},
 	},
+	"error-wrong-function-id": {
+		nil,
+		map[string]schema.CallableFunction{},
+		`wrong()`,
+		false,
+		true,
+		nil,
+	},
+	"error-incorrect-param-count": {
+		[]any{},
+		map[string]schema.CallableFunction{
+			"test": voidFunc,
+		},
+		`test("wrong")`,
+		false,
+		true,
+		nil,
+	},
 	"simple-int-addition": {
 		nil,
 		nil,
@@ -229,6 +257,17 @@ var testData = map[string]struct {
 		false,
 		false,
 		int64(10),
+	},
+	"referenced-int-addition": {
+		map[string]int64{
+			"a": 1,
+			"b": 2,
+		},
+		nil,
+		`$.a + $.b`,
+		false,
+		false,
+		int64(3),
 	},
 	"simple-int-subtraction": {
 		nil,
@@ -448,6 +487,200 @@ var testData = map[string]struct {
 		false,
 		true,
 	},
+	"simple-bool-equals-same": {
+		nil,
+		nil,
+		`false == false`,
+		false,
+		false,
+		true,
+	},
+	"simple-bool-equals-different": {
+		nil,
+		nil,
+		`false == true`,
+		false,
+		false,
+		false,
+	},
+	"simple-bool-not-equals": {
+		nil,
+		nil,
+		`false != true`,
+		false,
+		false,
+		true,
+	},
+	"simple-bool-and-1": {
+		nil,
+		nil,
+		`true && true`,
+		false,
+		false,
+		true,
+	},
+	"simple-bool-and-2": {
+		nil,
+		nil,
+		`true && false`,
+		false,
+		false,
+		false,
+	},
+	"simple-bool-or-1": {
+		nil,
+		nil,
+		`true || false`,
+		false,
+		false,
+		true,
+	},
+	"simple-bool-or-2": {
+		nil,
+		nil,
+		`false || false`,
+		false,
+		false,
+		false,
+	},
+	"simple-string-concatenation": {
+		nil,
+		nil,
+		`"a" + "b"`,
+		false,
+		false,
+		"ab",
+	},
+	"simple-string-equals-1": {
+		nil,
+		nil,
+		`"a" == "a"`,
+		false,
+		false,
+		true,
+	},
+	"simple-string-equals-2": {
+		nil,
+		nil,
+		`"a" == "A"`,
+		false,
+		false,
+		false,
+	},
+	"simple-string-not-equals-1": {
+		nil,
+		nil,
+		`"a" != "a"`,
+		false,
+		false,
+		false,
+	},
+	"simple-string-not-equals-2": {
+		nil,
+		nil,
+		`"a" != "A"`,
+		false,
+		false,
+		true,
+	},
+	"simple-string-greater": {
+		nil,
+		nil,
+		`"a" > "b"`,
+		false,
+		false,
+		false,
+	},
+	"simple-string-less": {
+		nil,
+		nil,
+		`"a" < "b"`,
+		false,
+		false,
+		true,
+	},
+	"simple-string-greater-than-equals": {
+		nil,
+		nil,
+		`"a" >= "a"`,
+		false,
+		false,
+		true,
+	},
+	"simple-string-less-than-equals": {
+		nil,
+		nil,
+		`"a" <= "b"`,
+		false,
+		false,
+		true,
+	},
+	"error-number-and": {
+		nil,
+		nil,
+		`1 && 1`,
+		false,
+		true,
+		nil,
+	},
+	"error-number-or": {
+		nil,
+		nil,
+		`1 || 1`,
+		false,
+		true,
+		nil,
+	},
+	"error-bool-math": {
+		nil,
+		nil,
+		`true + false`,
+		false,
+		true,
+		nil,
+	},
+	"error-bool-comparison": {
+		nil,
+		nil,
+		`true > false`,
+		false,
+		true,
+		nil,
+	},
+	"error-string-math": {
+		nil,
+		nil,
+		`"5" - "6"`,
+		false,
+		true,
+		nil,
+	},
+	"error-string-logic": {
+		nil,
+		nil,
+		`"5" && "6"`,
+		false,
+		true,
+		nil,
+	},
+	"error-mismatched-types": {
+		nil,
+		nil,
+		`5 + 5.0`,
+		false,
+		true,
+		nil,
+	},
+	"casted-type": {
+		nil,
+		map[string]schema.CallableFunction{
+			"intToFloat": intToFloatFunc,
+		},
+		`intToFloat(5) + 5.0`,
+		false,
+		false,
+		10.0,
+	},
 }
 
 func TestEvaluate(t *testing.T) {
@@ -456,6 +689,7 @@ func TestEvaluate(t *testing.T) {
 	assert.NoError(t, strToStrFuncErr)
 	assert.NoError(t, twoIntToIntFuncErr)
 	assert.NoError(t, dynamicToListFuncErr)
+	assert.NoError(t, intToFloatFuncErr)
 
 	for name, tc := range testData {
 		testCase := tc
