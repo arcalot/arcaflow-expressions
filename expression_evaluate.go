@@ -37,6 +37,8 @@ func (c evaluateContext) evaluate(node ast.Node, data any) (any, error) {
 		return c.evaluateFuncCall(n)
 	case *ast.BinaryOperation:
 		return c.evaluateBinaryOperation(n, data)
+	case *ast.UnaryOperation:
+		return c.evaluateUnaryOperation(n, data)
 	default:
 		return nil, fmt.Errorf("unsupported node type: %T", n)
 	}
@@ -163,6 +165,25 @@ func (c evaluateContext) evaluateBinaryOperation(node *ast.BinaryOperation, data
 		return evalBooleanOperation(left, rightEval.(bool), node.Operation)
 	default:
 		return nil, fmt.Errorf("unsupported type to perform binary operation on: %T", left)
+	}
+}
+
+func (c evaluateContext) evaluateUnaryOperation(node *ast.UnaryOperation, data any) (any, error) {
+	rightEval, err := c.evaluate(node.RightNode, data)
+	if err != nil {
+		return nil, err
+	}
+	// Currently we only support negation with unary operators
+	if node.LeftOperation != ast.Subtract {
+		return nil, fmt.Errorf("only negation is supported with unary evaluation at the moment. Got '%s'", node.LeftOperation)
+	}
+	switch left := rightEval.(type) {
+	case int64:
+		return left * -1, nil
+	case float64:
+		return left * -1.0, nil
+	default:
+		return nil, fmt.Errorf("unsupported type to perform unary operation on: %T", left)
 	}
 }
 

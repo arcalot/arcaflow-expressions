@@ -681,6 +681,38 @@ var testData = map[string]struct {
 		false,
 		10.0,
 	},
+	"int-negation": {
+		nil,
+		nil,
+		`-5`,
+		false,
+		false,
+		int64(-5),
+	},
+	"float-negation": {
+		nil,
+		nil,
+		`-5.0`,
+		false,
+		false,
+		-5.0,
+	},
+	"invalid-negation": {
+		nil,
+		nil,
+		`-true`,
+		false,
+		true,
+		nil,
+	},
+	"negation-and-subtraction": {
+		nil,
+		nil,
+		`5 - -5`,
+		false,
+		false,
+		int64(10),
+	},
 }
 
 func TestEvaluate(t *testing.T) {
