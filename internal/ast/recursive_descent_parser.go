@@ -3,7 +3,6 @@ package ast
 import (
 	"errors"
 	"fmt"
-	"slices"
 	"strconv"
 )
 
@@ -321,7 +320,7 @@ func (p *Parser) parseBinaryExpression(supportedOperators []TokenID, childNodePa
 		return nil, err
 	}
 	// Loop while there is addition or subtraction ahead.
-	for p.currentToken != nil && slices.Contains(supportedOperators, p.currentToken.TokenID) {
+	for p.currentToken != nil && sliceContains(supportedOperators, p.currentToken.TokenID) {
 		operatorToken, err := p.parseMathOperator()
 		if err != nil {
 			return nil, err
@@ -345,7 +344,7 @@ func (p *Parser) parseLeftUnaryExpression(supportedOperators []TokenID, childNod
 	if p.currentToken == nil {
 		return nil, &InvalidGrammarError{FoundToken: p.currentToken, ExpectedTokens: []TokenID{}}
 	}
-	if slices.Contains(supportedOperators, p.currentToken.TokenID) {
+	if sliceContains(supportedOperators, p.currentToken.TokenID) {
 		operation, err := p.parseMathOperator()
 		if err != nil {
 			return nil, err
@@ -428,7 +427,7 @@ func (p *Parser) parseNegationOperation() (Node, error) {
 
 // parseRootExpression parses a root expression
 func (p *Parser) parseRootValueOrAccess() (Node, error) {
-	if p.currentToken == nil || !slices.Contains(validStartTokens, p.currentToken.TokenID) {
+	if p.currentToken == nil || !sliceContains(validStartTokens, p.currentToken.TokenID) {
 		return nil, &InvalidGrammarError{FoundToken: p.currentToken, ExpectedTokens: validStartTokens}
 	} else if p.atRoot && p.currentToken.TokenID == CurrentObjectAccessToken {
 		// Can't support @ at root
@@ -441,7 +440,7 @@ func (p *Parser) parseRootValueOrAccess() (Node, error) {
 	var firstNode Node
 	var err error
 	// An expression can start with a literal, or an identifier. If an identifier, it can lead to a chain or a function.
-	if slices.Contains(literalTokens, p.currentToken.TokenID) {
+	if sliceContains(literalTokens, p.currentToken.TokenID) {
 		switch literalToken := p.currentToken.TokenID; literalToken {
 		case StringLiteralToken:
 			firstNode, err = p.parseStringLiteral()
@@ -535,8 +534,18 @@ func (p *Parser) parseChainedValueOrAccess(rootNode Node) (Node, error) {
 // eat validates then goes past the given token.
 // For use when you know which tokens are required.
 func (p *Parser) eat(validTokens []TokenID) error {
-	if p.currentToken == nil || !slices.Contains(validTokens, p.currentToken.TokenID) {
+	if p.currentToken == nil || !sliceContains(validTokens, p.currentToken.TokenID) {
 		return &InvalidGrammarError{FoundToken: p.currentToken, ExpectedTokens: validTokens}
 	}
 	return p.advanceToken()
+}
+
+// sliceContains is here to support versions of go before slices.Contains was added in Go 1.21
+func sliceContains(slice []TokenID, value TokenID) bool {
+	for _, val := range slice {
+		if val == value {
+			return true
+		}
+	}
+	return false
 }
