@@ -14,6 +14,7 @@ type dependencyContext struct {
 	rootType        schema.Type
 	rootPath        *PathTree
 	workflowContext map[string][]byte
+	functions       map[string]schema.Function
 }
 
 // dependencies evaluates an AST node for possible dependencies. It adds items to the specified path tree and returns
@@ -23,7 +24,11 @@ type dependencyContext struct {
 // Arguments:
 // - node: The root node of the tree of sub-tree to evaluate.
 // - currentType: The schema, which specifies the values and their types that can be referenced.
-// - path: A reference to the PathTree, which gets added to with the dependencies.
+// - path: A reference to the PathTree to the current node, which gets added to with the dependencies.
+// Returns:
+// - schema.Type: The schema for the value.
+// - *PathTree, the path to the value it depends on in the input schema, or nil if it's a literal.
+// - error: An error, if encountered.
 func (c *dependencyContext) dependencies(
 	node ast.Node,
 	currentType schema.Type,
@@ -34,14 +39,61 @@ func (c *dependencyContext) dependencies(
 		return c.dotNotationDependencies(n, currentType, path)
 	case *ast.BracketAccessor:
 		return c.bracketAccessorDependencies(n, currentType, path)
-	case *ast.Key:
-		// Keys should only be found in map accessors, which is already handled above, so this should never happen.
-		return nil, nil, fmt.Errorf("bug: reached key outside a map accessor")
 	case *ast.Identifier:
 		return c.identifierDependencies(n, currentType, path)
+	case *ast.StringLiteral:
+		return schema.NewStringSchema(nil, nil, nil), nil, nil
+	case *ast.IntLiteral:
+		return schema.NewIntSchema(nil, nil, nil), nil, nil
+	case *ast.FunctionCall:
+		return c.functionDependencies(n)
 	default:
 		return nil, nil, fmt.Errorf("unsupported AST node type: %T", n)
 	}
+}
+
+func (c *dependencyContext) functionDependencies(node *ast.FunctionCall) (schema.Type, *PathTree, error) {
+	// Get the types and dependencies of all parameters.
+	functionSchema, found := c.functions[node.FuncIdentifier.IdentifierName]
+	if !found {
+		return nil, nil, fmt.Errorf("could not find function '%s'", node.FuncIdentifier.IdentifierName)
+	}
+	paramTypes := functionSchema.Parameters()
+	// Validate param count
+	if node.ArgumentInputs.NumChildren() != len(paramTypes) {
+		return nil, nil, fmt.Errorf("invalid call to function '%s'. Expected %d args, got %d args. Function schema: %s",
+			functionSchema.ID(), len(paramTypes), node.ArgumentInputs.NumChildren(), functionSchema.String())
+	}
+	// Types need to be saved to validate argument types with parameter types, which are also needed to get the output type.
+	// Dependencies need to also be added to the PathTree
+	newFuncArgsPath := &PathTree{
+		PathItem: node.FuncIdentifier.IdentifierName,
+		Subtrees: nil,
+	}
+	// Save arg types for passing into output function
+	argTypes := make([]schema.Type, 0)
+	for i := 0; i < len(node.ArgumentInputs.Arguments); i++ {
+		arg := node.ArgumentInputs.Arguments[i]
+		argType, argDependencies, err := c.dependencies(arg, c.rootType, c.rootPath)
+		if err != nil {
+			return nil, nil, err
+		}
+		// Validate type compatibility with function's schema
+		paramType := paramTypes[i]
+		if err := paramType.ValidateCompatibility(argType); err != nil {
+			return nil, nil, fmt.Errorf("error while validating arg/param type compatibility for function '%s' at 0-index %d (%w). Function schema: %s",
+				functionSchema.ID(), i, err, functionSchema.String())
+		}
+		argTypes = append(argTypes, argType)
+		// Add dependency to the path tree
+		newFuncArgsPath.Subtrees = append(newFuncArgsPath.Subtrees, argDependencies)
+	}
+	// Now get the type from the function output
+	outputType, _, err := functionSchema.Output(argTypes)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error while getting return type (%w)", err)
+	}
+	return outputType, newFuncArgsPath, nil
 }
 
 // dotNotationDependencies resolves dependencies of a DotNotation node.
@@ -78,16 +130,16 @@ func (c *dependencyContext) bracketAccessorDependencies(
 		return nil, nil, err
 	}
 
-	switch {
-	case node.RightKey.Literal != nil:
-		return dependenciesBracketKey(leftType, node.RightKey.Literal.Value(), leftPath)
-	case node.RightKey.SubExpression != nil:
+	if literal, ok := node.RightExpression.(ast.ValueLiteral); ok {
+		return dependenciesAccessKnownKey(leftType, literal.Value(), leftPath)
+	} else {
+
 		// If we have a subexpression, we need to add all possible keys to the dependency map since we can't
 		// determine the correct one to extract. This could be further refined by evaluating the type. If it is an
 		// enum, we could potentially limit the number of dependencies.
 
 		// Evaluate the subexpression
-		keyType, _, err := c.dependencies(node.RightKey.SubExpression, c.rootType, c.rootPath)
+		keyType, _, err := c.dependencies(node.RightExpression, c.rootType, c.rootPath)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -104,9 +156,6 @@ func (c *dependencyContext) bracketAccessorDependencies(
 			// evaluation.
 			return nil, nil, fmt.Errorf("subexpressions are only supported on map and list types, %s given", currentType.TypeID())
 		}
-
-	default:
-		return nil, nil, fmt.Errorf("bug: neither literal, nor subexpression are set on key")
 	}
 }
 
@@ -167,13 +216,13 @@ func (c *dependencyContext) identifierDependencies(
 		return c.rootType, path, nil
 	default:
 		// This case is the item.item type expression, where the right item is the "identifier" in question.
-		return dependenciesBracketKey(currentType, node.IdentifierName, path)
+		return dependenciesAccessKnownKey(currentType, node.IdentifierName, path)
 	}
 }
 
-// dependenciesBracketKey is a helper function that extracts an item in a list, map, or object. This is used when an
+// dependenciesAccessKnownKey is a helper function that extracts an item in a list, map, or object. This is used when an
 // identifier or a map accessor are encountered.
-func dependenciesBracketKey(currentType schema.Type, key any, path *PathTree) (schema.Type, *PathTree, error) {
+func dependenciesAccessKnownKey(currentType schema.Type, key any, path *PathTree) (schema.Type, *PathTree, error) {
 	switch currentType.TypeID() {
 	case schema.TypeIDList:
 		// Lists can only have numeric indexes, therefore we need to convert the types to integers. Since internally
@@ -187,6 +236,7 @@ func dependenciesBracketKey(currentType schema.Type, key any, path *PathTree) (s
 				return nil, nil, fmt.Errorf("cannot use non-integer expression identifier %s on list", key)
 			}
 		case int:
+		case int64:
 			listItem = k
 		default:
 			return nil, nil, fmt.Errorf("bug: invalid key type encountered for map key: %T", key)
