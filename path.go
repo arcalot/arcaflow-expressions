@@ -30,7 +30,8 @@ func (p PathTree) Unpack() []Path {
 		var result []Path
 		for _, subtree := range p.Subtrees {
 			for _, subtreeResult := range subtree.Unpack() {
-				result = append(result, append([]any{p.PathItem}, subtreeResult...))
+				currentPathNodes := append([]any{p.PathItem}, subtreeResult...)
+				result = append(result, currentPathNodes)
 			}
 		}
 		return result

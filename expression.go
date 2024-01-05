@@ -51,7 +51,7 @@ func (e expression) String() string {
 }
 
 func (e expression) Type(scope schema.Scope, functions map[string]schema.Function, workflowContext map[string][]byte) (schema.Type, error) {
-	tree := &PathTree{
+	tree := PathTree{
 		PathItem: "$",
 		Subtrees: nil,
 	}
@@ -61,7 +61,7 @@ func (e expression) Type(scope schema.Scope, functions map[string]schema.Functio
 		workflowContext: workflowContext,
 		functions:       functions,
 	}
-	result, _, err := d.dependencies(e.ast, scope, tree)
+	result, _, _, err := d.rootDependencies(e.ast)
 	if err != nil {
 		return nil, err
 	}
@@ -69,21 +69,41 @@ func (e expression) Type(scope schema.Scope, functions map[string]schema.Functio
 }
 
 func (e expression) Dependencies(scope schema.Type, functions map[string]schema.Function, workflowContext map[string][]byte) ([]Path, error) {
-	tree := &PathTree{
+	root := PathTree{
 		PathItem: "$",
 		Subtrees: nil,
 	}
 	d := &dependencyContext{
 		rootType:        scope,
-		rootPath:        tree,
+		rootPath:        root,
 		workflowContext: workflowContext,
 		functions:       functions,
 	}
-	_, _, err := d.dependencies(e.ast, scope, tree)
+	_, _, dependencies, err := d.rootDependencies(e.ast)
 	if err != nil {
 		return nil, err
 	}
-	return tree.Unpack(), nil
+	// Now convert to paths, saving only unique values.
+	finalDependencyMap := make(map[string]Path)
+	if dependencies != nil {
+		for _, dependencyTree := range dependencies {
+			unpackedDependencies := dependencyTree.Unpack()
+			for _, dependency := range unpackedDependencies {
+				asString := dependency.String()
+				_, dependencyExists := finalDependencyMap[asString]
+				if !dependencyExists {
+					finalDependencyMap[asString] = dependency
+				}
+			}
+		}
+	}
+	finalDependencies := make([]Path, len(finalDependencyMap))
+	i := 0
+	for _, v := range finalDependencyMap {
+		finalDependencies[i] = v
+		i += 1
+	}
+	return finalDependencies, nil
 }
 
 func (e expression) Evaluate(data any, functions map[string]schema.CallableFunction, workflowContext map[string][]byte) (any, error) {

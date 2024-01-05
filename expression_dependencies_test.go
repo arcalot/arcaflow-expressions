@@ -13,6 +13,9 @@ func TestDependencyResolution(t *testing.T) {
 		"scope": testScope,
 		"any":   schema.NewAnySchema(),
 	}
+	pathStrExtractor := func(value expressions.Path) string {
+		return value.String()
+	}
 	// All of these can apply to multiple types, so we'll iterate over the possibilities.
 	for name, schemaType := range scopes {
 		name := name
@@ -61,8 +64,10 @@ func TestDependencyResolution(t *testing.T) {
 					assert.Error(t, err)
 				} else {
 					assert.NoError(t, err)
-					assert.Equals(t, path[0].String(), "$.foo")
-					assert.Equals(t, path[1].String(), "$.faz.foo")
+					// Order isn't deterministic, so use contains and length validations.
+					assert.Equals(t, len(path), 2)
+					assert.SliceContainsExtractor(t, pathStrExtractor, "$.foo", path)
+					assert.SliceContainsExtractor(t, pathStrExtractor, "$.faz.foo", path)
 				}
 			})
 
@@ -70,17 +75,11 @@ func TestDependencyResolution(t *testing.T) {
 				expr, err := expressions.New("$.faz[$.foo.bar]")
 				assert.NoError(t, err)
 				path, err := expr.Dependencies(schemaType, nil, nil)
-				if name == "scope" {
-					assert.NoError(t, err)
-					assert.Equals(t, len(path), 2)
-					assert.Equals(t, path[0].String(), "$.faz.*")
-					assert.Equals(t, path[1].String(), "$.foo.bar")
-				} else {
-					assert.NoError(t, err)
-					assert.Equals(t, len(path), 2)
-					assert.Equals(t, path[0].String(), "$.faz")
-					assert.Equals(t, path[1].String(), "$.foo.bar")
-				}
+				assert.NoError(t, err)
+				// Order isn't deterministic, so use contains and length validations.
+				assert.Equals(t, len(path), 2)
+				assert.SliceContainsExtractor(t, pathStrExtractor, "$.faz", path)
+				assert.SliceContainsExtractor(t, pathStrExtractor, "$.foo.bar", path)
 			})
 		})
 	}
@@ -91,7 +90,7 @@ func TestLiteralDependencyResolution(t *testing.T) {
 	assert.NoError(t, err)
 	path, err := expr.Dependencies(testScope, nil, nil)
 	assert.NoError(t, err)
-	assert.Equals(t, len(path), 1) // Does not depend on anything.
+	assert.Equals(t, len(path), 0) // Does not depend on anything.
 }
 
 func TestFunctionDependencyResolution_void(t *testing.T) {
@@ -102,8 +101,7 @@ func TestFunctionDependencyResolution_void(t *testing.T) {
 	assert.NoError(t, err)
 	dependencyTree, err := expr.Dependencies(testScope, map[string]schema.Function{"voidFunc": voidFunc}, nil)
 	assert.NoError(t, err)
-	assert.Equals(t, len(dependencyTree), 1)
-	assert.Equals(t, dependencyTree[0].String(), "$")
+	assert.Equals(t, len(dependencyTree), 0)
 }
 
 func TestFunctionDependencyResolution_error_unknown_func(t *testing.T) {
@@ -130,12 +128,35 @@ func TestFunctionDependencyResolution_singleParam(t *testing.T) {
 	assert.NoError(t, err)
 	dependencyTree, err := expr.Dependencies(testScope, funcMap, nil)
 	assert.NoError(t, err)
-	assert.Equals(t, len(dependencyTree), 1)
-	assert.Equals(t, dependencyTree[0].String(), "$")
+	assert.Equals(t, len(dependencyTree), 0)
 
 	expr, err = expressions.New(`intIn($.simple_int)`)
 	assert.NoError(t, err)
 	dependencyTree, err = expr.Dependencies(testScope, funcMap, nil)
+	assert.NoError(t, err)
+	assert.Equals(t, len(dependencyTree), 1)
+	assert.Equals(t, dependencyTree[0].String(), "$.simple_int")
+}
+
+func TestFunctionDependencyResolution_duplicateDependency(t *testing.T) {
+	// Tests that is doesn't include the same dependency twice.
+	intInFunc, err := schema.NewCallableFunction(
+		"twoIntIn",
+		[]schema.Type{
+			schema.NewIntSchema(nil, nil, nil),
+			schema.NewIntSchema(nil, nil, nil),
+		},
+		nil,
+		false,
+		nil,
+		func(a int64, b int64) {},
+	)
+	assert.NoError(t, err)
+	funcMap := map[string]schema.Function{"twoIntIn": intInFunc}
+
+	expr, err := expressions.New(`twoIntIn($.simple_int, $.simple_int)`)
+	assert.NoError(t, err)
+	dependencyTree, err := expr.Dependencies(testScope, funcMap, nil)
 	assert.NoError(t, err)
 	assert.Equals(t, len(dependencyTree), 1)
 	assert.Equals(t, dependencyTree[0].String(), "$.simple_int")
@@ -271,15 +292,13 @@ func TestFunctionDependencyResolution_dynamicTyping(t *testing.T) {
 	assert.NoError(t, err)
 	dependencyTree, err := expr.Dependencies(testScope, funcMap, nil)
 	assert.NoError(t, err)
-	assert.Equals(t, len(dependencyTree), 1)
-	assert.Equals(t, dependencyTree[0].String(), "$")
+	assert.Equals(t, len(dependencyTree), 0)
 	// Test identity returning str when given str
 	expr, err = expressions.New(`strIn(identity("test"))`)
 	assert.NoError(t, err)
 	dependencyTree, err = expr.Dependencies(testScope, funcMap, nil)
 	assert.NoError(t, err)
-	assert.Equals(t, len(dependencyTree), 1)
-	assert.Equals(t, dependencyTree[0].String(), "$")
+	assert.Equals(t, len(dependencyTree), 0)
 	// Test type mismatch
 	expr, err = expressions.New(`strIn(identity(1))`)
 	assert.NoError(t, err)
