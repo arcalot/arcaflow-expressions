@@ -30,6 +30,7 @@ func TestDependencyResolution(t *testing.T) {
 				assert.Equals(t, len(path), 1)
 				assert.Equals(t, path[0].String(), "$.foo.bar")
 				pathWithoutExtra, err := expr.Dependencies(schemaType, nil, nil, false)
+				assert.NoError(t, err)
 				if name == "any" {
 					assert.Equals(t, pathWithoutExtra[0].String(), "$")
 				} else {
