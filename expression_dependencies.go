@@ -270,29 +270,21 @@ func dependenciesAccessKnownKey(currentType schema.Type, key any, path *PathTree
 		default:
 			return nil, nil, nil, fmt.Errorf("bug: invalid key type encountered for map key: %T", key)
 		}
-		if path == nil {
-			// Accessing a value that's not based on the main data structure.
-			return currentType.(*schema.ListSchema).ItemsValue, nil, []*PathTree{}, nil
+		if path != nil {
+			path.Extraneous = append(path.Extraneous, listItem)
 		}
-		pathItem := &PathTree{
-			PathItem: listItem,
-			Subtrees: nil,
-		}
-		path.Subtrees = append(path.Subtrees, pathItem)
-		return currentType.(*schema.ListSchema).ItemsValue, pathItem, []*PathTree{}, nil
+		return currentType.(*schema.ListSchema).ItemsValue, path, []*PathTree{}, nil
 	case schema.TypeIDMap:
 		// Maps can have various key types, so we need to unserialize the passed key according to its schema and use
 		// it to find the correct key.
-		pathItem := &PathTree{
-			PathItem: key,
-			Subtrees: nil,
-		}
 		mapType := currentType.(schema.UntypedMap)
 		if _, err := mapType.Keys().Unserialize(key); err != nil {
 			return nil, nil, nil, fmt.Errorf("cannot unserialize map key type %v (%w)", key, err)
 		}
-		path.Subtrees = append(path.Subtrees, pathItem)
-		return mapType.Values(), pathItem, []*PathTree{}, nil
+		if path != nil {
+			path.Extraneous = append(path.Extraneous, key)
+		}
+		return mapType.Values(), path, []*PathTree{}, nil
 	case schema.TypeIDObject:
 		fallthrough
 	case schema.TypeIDRef:
@@ -320,16 +312,15 @@ func dependenciesAccessKnownKey(currentType schema.Type, key any, path *PathTree
 			PathItem: key,
 			Subtrees: nil,
 		}
-		// It appends itself to the parent path, then returns its own node.
-		path.Subtrees = append(path.Subtrees, pathItem)
+		if path != nil {
+			path.Subtrees = append(path.Subtrees, pathItem)
+		}
 		return property.Type(), pathItem, []*PathTree{}, nil
 	case schema.TypeIDAny:
-		pathItem := &PathTree{
-			PathItem: key,
-			Subtrees: nil,
+		if path != nil {
+			path.Extraneous = append(path.Extraneous, key)
 		}
-		path.Subtrees = append(path.Subtrees, pathItem)
-		return currentType, pathItem, []*PathTree{}, nil
+		return currentType, path, []*PathTree{}, nil
 	default:
 		return nil, nil, nil, fmt.Errorf("cannot evaluate expression identifier %s on data type %s", key, currentType.TypeID())
 	}
