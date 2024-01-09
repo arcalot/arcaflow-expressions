@@ -2,8 +2,6 @@ package expressions
 
 import (
 	"fmt"
-	"strconv"
-
 	"go.flow.arcalot.io/expressions/internal/ast"
 	"go.flow.arcalot.io/pluginsdk/schema"
 )
@@ -201,7 +199,7 @@ func (c *dependencyContext) bracketSubExprMapDependencies(
 	// to their expressions to convert an integer to a string, for example.
 	mapType := leftType.(schema.UntypedMap)
 	if keyType.TypeID() != mapType.Keys().TypeID() {
-		return nil, nil, nil, fmt.Errorf("subexpressions resulted in a %s type for a map, %s expected", keyType.TypeID(), mapType.Keys().TypeID())
+		return nil, nil, nil, fmt.Errorf("subexpression evaluates to type '%s' for a map, '%s' expected", keyType.TypeID(), mapType.Keys().TypeID())
 	}
 	return mapType.Values(), leftPath, []*PathTree{}, nil
 }
@@ -222,11 +220,6 @@ func (c *dependencyContext) bracketSubExprListDependencies(
 	default:
 		return nil, nil, nil, fmt.Errorf("subexpressions resulted in a %s type for a list key, integer expected", keyType.TypeID())
 	}
-	pathItem := &PathTree{
-		PathItem: list,
-		Subtrees: nil,
-	}
-	path.Subtrees = append(path.Subtrees, pathItem)
 	return list.Items(), path, []*PathTree{}, nil
 }
 
@@ -251,19 +244,13 @@ func (c *dependencyContext) identifierDependencies(
 
 // dependenciesAccessKnownKey is a helper function that extracts an item in a list, map, or object. This is used when an
 // identifier or a map accessor are encountered.
-func dependenciesAccessKnownKey(currentType schema.Type, key any, path *PathTree) (schema.Type, *PathTree, []*PathTree, error) {
-	switch currentType.TypeID() {
+func dependenciesAccessKnownKey(leftType schema.Type, key any, path *PathTree) (schema.Type, *PathTree, []*PathTree, error) {
+	switch leftType.TypeID() {
 	case schema.TypeIDList:
 		// Lists can only have numeric indexes, therefore we need to convert the types to integers. Since internally
 		// the SDK doesn't use anything but ints, that's what we are converting to.
 		var listItem any
-		var err error
 		switch k := key.(type) {
-		case string:
-			listItem, err = strconv.ParseInt(k, 10, 64)
-			if err != nil {
-				return nil, nil, nil, fmt.Errorf("cannot use non-integer expression identifier %s on list", key)
-			}
 		case int:
 		case int64:
 			listItem = k
@@ -273,11 +260,11 @@ func dependenciesAccessKnownKey(currentType schema.Type, key any, path *PathTree
 		if path != nil {
 			path.Extraneous = append(path.Extraneous, listItem)
 		}
-		return currentType.(*schema.ListSchema).ItemsValue, path, []*PathTree{}, nil
+		return leftType.(*schema.ListSchema).ItemsValue, path, []*PathTree{}, nil
 	case schema.TypeIDMap:
 		// Maps can have various key types, so we need to unserialize the passed key according to its schema and use
 		// it to find the correct key.
-		mapType := currentType.(schema.UntypedMap)
+		mapType := leftType.(schema.UntypedMap)
 		if _, err := mapType.Keys().Unserialize(key); err != nil {
 			return nil, nil, nil, fmt.Errorf("cannot unserialize map key type %v (%w)", key, err)
 		}
@@ -302,7 +289,7 @@ func dependenciesAccessKnownKey(currentType schema.Type, key any, path *PathTree
 			return nil, nil, nil, fmt.Errorf("bug: invalid key type encountered for object key: %T", key)
 		}
 
-		currentObject := currentType.(schema.Object)
+		currentObject := leftType.(schema.Object)
 		properties := currentObject.Properties()
 		property, ok := properties[objectItem]
 		if !ok {
@@ -320,8 +307,8 @@ func dependenciesAccessKnownKey(currentType schema.Type, key any, path *PathTree
 		if path != nil {
 			path.Extraneous = append(path.Extraneous, key)
 		}
-		return currentType, path, []*PathTree{}, nil
+		return leftType, path, []*PathTree{}, nil
 	default:
-		return nil, nil, nil, fmt.Errorf("cannot evaluate expression identifier %s on data type %s", key, currentType.TypeID())
+		return nil, nil, nil, fmt.Errorf("cannot evaluate expression identifier %s on data type %s", key, leftType.TypeID())
 	}
 }

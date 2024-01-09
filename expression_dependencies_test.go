@@ -94,7 +94,7 @@ func TestDependencyResolution(t *testing.T) {
 				assert.SliceContainsExtractor(t, pathStrExtractor, "$.faz", path)
 				assert.SliceContainsExtractor(t, pathStrExtractor, "$.foo.bar", path)
 			})
-			t.Run("list", func(t *testing.T) {
+			t.Run("list-literal-key", func(t *testing.T) {
 				expr, err := expressions.New("$.int_list[0]")
 				assert.NoError(t, err)
 				pathWithExtra, err := expr.Dependencies(schemaType, nil, nil, true)
@@ -110,6 +110,16 @@ func TestDependencyResolution(t *testing.T) {
 					// Without extraneous, the path just refers to the list, since the items of the list have the same schema.
 					assert.Equals(t, pathWithoutExtra[0].String(), "$.int_list")
 				}
+
+			})
+			t.Run("list-subexpr-key", func(t *testing.T) {
+				expr, err := expressions.New("$.int_list[$.simple_int]")
+				assert.NoError(t, err)
+				pathWithExtra, err := expr.Dependencies(schemaType, nil, nil, true)
+				assert.NoError(t, err)
+				assert.Equals(t, len(pathWithExtra), 2)
+				assert.SliceContainsExtractor(t, pathStrExtractor, "$.int_list", pathWithExtra)
+				assert.SliceContainsExtractor(t, pathStrExtractor, "$.simple_int", pathWithExtra)
 
 			})
 		})
