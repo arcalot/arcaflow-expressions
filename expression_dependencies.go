@@ -152,14 +152,6 @@ func (c *dependencyContext) bracketAccessorDependencies(
 		return nil, nil, nil, err
 	}
 
-	/*if literal, ok := node.RightExpression.(ast.ValueLiteral); ok {
-		return dependenciesAccessKnownKey(leftType, literal.Value(), leftPath)
-	} else {*/
-
-	// If we have a subexpression, we need to add all possible keys to the dependency map since we can't
-	// determine the correct one to extract. This could be further refined by evaluating the type. If it is an
-	// enum, we could potentially limit the number of dependencies.
-
 	// Evaluate the subexpression
 	keyType, _, keyDependencies, err := c.rootDependencies(node.RightExpression)
 	if err != nil {
