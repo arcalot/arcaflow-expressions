@@ -19,11 +19,12 @@ func TestTypeEvaluation(t *testing.T) {
 	})
 
 	t.Run("map-accessor", func(t *testing.T) {
-		expr, err := expressions.New("$[\"foo\"].bar")
+		expr, err := expressions.New(`$.faz["abc"]`)
 		assert.NoError(t, err)
 		resultType, err := expr.Type(testScope, nil, nil)
 		assert.NoError(t, err)
-		assert.Equals(t, resultType.TypeID(), schema.TypeIDString)
+		// The value type of the map is object.
+		assert.Equals(t, resultType.TypeID(), schema.TypeIDObject)
 	})
 
 	t.Run("map", func(t *testing.T) {
@@ -32,14 +33,6 @@ func TestTypeEvaluation(t *testing.T) {
 		resultType, err := expr.Type(testScope, nil, nil)
 		assert.NoError(t, err)
 		assert.Equals(t, resultType.TypeID(), schema.TypeIDMap)
-	})
-
-	t.Run("map-subkey", func(t *testing.T) {
-		expr, err := expressions.New("$.faz.foo")
-		assert.NoError(t, err)
-		resultType, err := expr.Type(testScope, nil, nil)
-		assert.NoError(t, err)
-		assert.Equals(t, resultType.TypeID(), schema.TypeIDObject)
 	})
 
 	t.Run("subexpression-invalid", func(t *testing.T) {
@@ -56,6 +49,30 @@ func TestTypeEvaluation(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equals(t, resultType.TypeID(), schema.TypeIDObject)
 
+	})
+
+	t.Run("list-value", func(t *testing.T) {
+		expr, err := expressions.New("$.int_list")
+		assert.NoError(t, err)
+		resultType, err := expr.Type(testScope, nil, nil)
+		assert.NoError(t, err)
+		assert.Equals(t, resultType.TypeID(), schema.TypeIDList)
+	})
+
+	t.Run("list-item", func(t *testing.T) {
+		expr, err := expressions.New("$.int_list[0]")
+		assert.NoError(t, err)
+		resultType, err := expr.Type(testScope, nil, nil)
+		assert.NoError(t, err)
+		assert.Equals(t, resultType.TypeID(), schema.TypeIDInt)
+	})
+
+	t.Run("any-schema", func(t *testing.T) {
+		expr, err := expressions.New("$.simple_any.a.b")
+		assert.NoError(t, err)
+		resultType, err := expr.Type(testScope, nil, nil)
+		assert.NoError(t, err)
+		assert.Equals(t, resultType.TypeID(), schema.TypeIDAny)
 	})
 }
 
