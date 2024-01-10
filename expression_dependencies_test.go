@@ -41,11 +41,16 @@ func TestDependencyResolution(t *testing.T) {
 			t.Run("map-accessor", func(t *testing.T) {
 				expr, err := expressions.New("$[\"foo\"].bar")
 				assert.NoError(t, err)
-				path, err := expr.Dependencies(schemaType, nil, nil, true)
-				assert.NoError(t, err)
-				assert.Equals(t, len(path), 1)
-				// We only know the path with the scope. Not with the 'any' type.
-				assert.Equals(t, path[0].String(), "$.foo.bar")
+				paths, err := expr.Dependencies(schemaType, nil, nil, true)
+				if name == "any" {
+					// There isn't enough info to say this for an any type, but it passes as extraneous
+					assert.NoError(t, err)
+					assert.Equals(t, len(paths), 1)
+					assert.Equals(t, paths[0].String(), "$.foo.bar")
+				} else {
+					assert.Error(t, err)
+					assert.Contains(t, err.Error(), "scope given")
+				}
 			})
 
 			t.Run("map", func(t *testing.T) {
@@ -58,12 +63,12 @@ func TestDependencyResolution(t *testing.T) {
 			})
 
 			t.Run("map-subkey", func(t *testing.T) {
-				expr, err := expressions.New("$.faz.foo")
+				expr, err := expressions.New(`$.faz["foo"]`)
 				assert.NoError(t, err)
 				path, err := expr.Dependencies(schemaType, nil, nil, true)
 				assert.NoError(t, err)
 				assert.Equals(t, len(path), 1)
-				// Note: if includeExtraneous is set to false, the foo in $.faz.foo will be missing because foo is
+				// Note: if includeExtraneous is set to false, the foo in $.faz["foo"] will be missing because foo is
 				// extraneous due to it being a map key, and when the data type is the `any` type, it will just be "$"
 				assert.Equals(t, path[0].String(), "$.faz.foo")
 			})

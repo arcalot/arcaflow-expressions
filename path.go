@@ -23,32 +23,29 @@ type PathTree struct {
 	// The value at the part of the tree
 	PathItem any
 	// Extra values that do not contribute to the validated path, like within `any` values, or map indexes
-	Extraneous []any
-	Subtrees   []*PathTree
+	IsExtraneous bool
+	Subtrees     []*PathTree
 }
 
 // Unpack unpacks the path tree into a list of paths.
 func (p PathTree) Unpack(includeExtraneous bool) []Path {
-	if len(p.Subtrees) > 0 {
-		var result []Path
-		for _, subtree := range p.Subtrees {
-			for _, subtreeResult := range subtree.Unpack(includeExtraneous) {
-				// First, this path item
-				currentPathNodes := []any{p.PathItem}
-				// Second, if requested, the extraneous values
-				if includeExtraneous {
-					currentPathNodes = append(currentPathNodes, p.Extraneous...)
-				}
-				// Lastly add the sub-trees
-				currentPathNodes = append(currentPathNodes, subtreeResult...)
-				result = append(result, currentPathNodes)
-			}
+	if !includeExtraneous && p.IsExtraneous {
+		// This one is extraneous, so exit without any paths.
+		return []Path{}
+	}
+	var result []Path
+
+	for _, subtree := range p.Subtrees {
+		for _, subtreeResult := range subtree.Unpack(includeExtraneous) {
+			// First, this path item
+			currentPathNodes := []any{p.PathItem}
+			// Second, add the subtrees
+			currentPathNodes = append(currentPathNodes, subtreeResult...)
+			result = append(result, currentPathNodes)
 		}
-		return result
 	}
-	result := []any{p.PathItem}
-	if includeExtraneous {
-		result = append(result, p.Extraneous...)
+	if len(result) == 0 { // Happens when there are only extraneous subtrees
+		result = append(result, []any{p.PathItem})
 	}
-	return []Path{result}
+	return result
 }

@@ -67,6 +67,16 @@ var testScope = schema.NewScopeSchema(
 				nil,
 				nil,
 			),
+			"simple_any": schema.NewPropertySchema(
+				schema.NewAnySchema(),
+				nil,
+				true,
+				nil,
+				nil,
+				nil,
+				nil,
+				nil,
+			),
 			"int_list": schema.NewPropertySchema(
 				schema.NewListSchema(
 					schema.NewIntSchema(nil, nil, nil),

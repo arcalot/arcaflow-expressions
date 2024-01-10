@@ -9,18 +9,23 @@ import (
 
 func TestPathTree_Unpack(t *testing.T) {
 	pathTree := expressions.PathTree{
-		PathItem:   "foo",
-		Extraneous: []any{"a"},
+		PathItem: "foo",
 		Subtrees: []*expressions.PathTree{
 			{
 				"bar",
-				[]any{},
+				false,
 				nil,
 			},
 			{
 				"baz",
-				[]any{0},
-				nil,
+				false,
+				[]*expressions.PathTree{
+					{
+						0,
+						true,
+						nil,
+					},
+				},
 			},
 		},
 	}
@@ -30,7 +35,7 @@ func TestPathTree_Unpack(t *testing.T) {
 	assert.Equals(t, len(paths), 2)
 	assert.Equals(t, len(pathsWithExtranous), 2)
 	assert.Equals(t, paths[0].String(), "foo.bar")
-	assert.Equals(t, pathsWithExtranous[0].String(), "foo.a.bar")
+	assert.Equals(t, pathsWithExtranous[0].String(), "foo.bar")
 	assert.Equals(t, paths[1].String(), "foo.baz")
-	assert.Equals(t, pathsWithExtranous[1].String(), "foo.a.baz.0")
+	assert.Equals(t, pathsWithExtranous[1].String(), "foo.baz.0")
 }

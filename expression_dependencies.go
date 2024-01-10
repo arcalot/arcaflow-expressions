@@ -152,39 +152,40 @@ func (c *dependencyContext) bracketAccessorDependencies(
 		return nil, nil, nil, err
 	}
 
-	if literal, ok := node.RightExpression.(ast.ValueLiteral); ok {
+	/*if literal, ok := node.RightExpression.(ast.ValueLiteral); ok {
 		return dependenciesAccessKnownKey(leftType, literal.Value(), leftPath)
-	} else {
+	} else {*/
 
-		// If we have a subexpression, we need to add all possible keys to the dependency map since we can't
-		// determine the correct one to extract. This could be further refined by evaluating the type. If it is an
-		// enum, we could potentially limit the number of dependencies.
+	// If we have a subexpression, we need to add all possible keys to the dependency map since we can't
+	// determine the correct one to extract. This could be further refined by evaluating the type. If it is an
+	// enum, we could potentially limit the number of dependencies.
 
-		// Evaluate the subexpression
-		keyType, _, keyDependencies, err := c.rootDependencies(node.RightExpression)
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		mergedDependencies := append(leftDependencies, keyDependencies...)
-		var typeResult schema.Type
-		var chainablePath *PathTree
-		var currentDependencies []*PathTree
-		switch leftType.TypeID() {
-		case schema.TypeIDMap:
-			typeResult, chainablePath, currentDependencies, err = c.bracketSubExprMapDependencies(keyType, leftType, leftPath)
-		case schema.TypeIDList:
-			typeResult, chainablePath, currentDependencies, err = c.bracketSubExprListDependencies(keyType, leftType, leftPath)
-		case schema.TypeIDAny:
-			typeResult, chainablePath, currentDependencies, err = schema.NewAnySchema(), leftPath, []*PathTree{}, nil
-		default:
-			// We don't support subexpressions to pick a property on an object type since that would result in
-			// unpredictable behavior and runtime errors. Furthermore, we would not be able to perform type
-			// evaluation.
-			return nil, nil, nil, fmt.Errorf("subexpressions are only supported on map and list types, %s given", currentType.TypeID())
-		}
-		mergedDependencies = append(mergedDependencies, currentDependencies...)
-		return typeResult, chainablePath, mergedDependencies, err
+	// Evaluate the subexpression
+	keyType, _, keyDependencies, err := c.rootDependencies(node.RightExpression)
+	if err != nil {
+		return nil, nil, nil, err
 	}
+	mergedDependencies := append(leftDependencies, keyDependencies...)
+	var typeResult schema.Type
+	var chainablePath *PathTree
+	var currentDependencies []*PathTree
+	switch leftType.TypeID() {
+	case schema.TypeIDMap:
+		typeResult, chainablePath, currentDependencies, err = c.bracketSubExprMapDependencies(keyType, leftType, leftPath)
+	case schema.TypeIDList:
+		typeResult, chainablePath, currentDependencies, err = c.bracketListDependencies(keyType, leftType, leftPath)
+	case schema.TypeIDAny:
+		typeResult, chainablePath, currentDependencies, err = schema.NewAnySchema(), leftPath, []*PathTree{}, nil
+	default:
+		// We don't support subexpressions to pick a property on an object type since that would result in
+		// unpredictable behavior and runtime errors. Furthermore, we would not be able to perform type
+		// evaluation.
+		return nil, nil, nil, fmt.Errorf("subexpressions are only supported on map, list, and any types, %s given", currentType.TypeID())
+	}
+	// For literals, add extraneous data.
+	chainablePath = c.addExtraneous(node.RightExpression, chainablePath)
+	mergedDependencies = append(mergedDependencies, currentDependencies...)
+	return typeResult, chainablePath, mergedDependencies, err
 }
 
 // bracketSubExprMapDependencies is used to resolve dependencies when a bracket accessor has a subexpression,
@@ -204,16 +205,15 @@ func (c *dependencyContext) bracketSubExprMapDependencies(
 	return mapType.Values(), leftPath, []*PathTree{}, nil
 }
 
-// bracketSubExprListDependencies is used to resolve dependencies when a bracket accessor has a subexpression,
+// bracketListDependencies is used to resolve dependencies when a bracket accessor has a subexpression,
 // with the left type being a list.
-func (c *dependencyContext) bracketSubExprListDependencies(
+func (c *dependencyContext) bracketListDependencies(
 	keyType schema.Type,
 	leftType schema.Type,
 	path *PathTree,
 ) (schema.Type, *PathTree, []*PathTree, error) {
 	// Lists have integer indexes, so we try to make sure that the subexpression is yielding an int or
 	// int-like type. This will have the best chance of not resulting in a runtime error.
-
 	list := leftType.(schema.UntypedList)
 	switch keyType.TypeID() {
 	case schema.TypeIDInt:
@@ -221,6 +221,24 @@ func (c *dependencyContext) bracketSubExprListDependencies(
 		return nil, nil, nil, fmt.Errorf("subexpressions resulted in a %s type for a list key, integer expected", keyType.TypeID())
 	}
 	return list.Items(), path, []*PathTree{}, nil
+}
+
+func (c *dependencyContext) addExtraneous(node ast.Node, path *PathTree) *PathTree {
+	// If literal, include that in the extraneous info, only if path present.
+	if path != nil { // Do this check first, to skip the literal check when possible.
+		if literalValue, isLiteral := node.(ast.ValueLiteral); isLiteral {
+			pathItem := &PathTree{
+				PathItem:     literalValue.Value(),
+				IsExtraneous: true,
+				Subtrees:     nil,
+			}
+			if path != nil {
+				path.Subtrees = append(path.Subtrees, pathItem)
+			}
+			return pathItem
+		}
+	}
+	return path
 }
 
 func (c *dependencyContext) identifierDependencies(
@@ -238,77 +256,50 @@ func (c *dependencyContext) identifierDependencies(
 		return c.rootType, path, []*PathTree{}, nil
 	default:
 		// This case is the item.item type expression, where the right item is the "identifier" in question.
-		return dependenciesAccessKnownKey(currentType, node.IdentifierName, path)
+		return dependenciesAccessObject(currentType, node.IdentifierName, path)
 	}
 }
 
-// dependenciesAccessKnownKey is a helper function that extracts an item in a list, map, or object. This is used when an
-// identifier or a map accessor are encountered.
-func dependenciesAccessKnownKey(leftType schema.Type, key any, path *PathTree) (schema.Type, *PathTree, []*PathTree, error) {
+// dependenciesAccessKnownKey this function reads the object on the left to determine
+// the type of the property referenced.
+func dependenciesAccessObject(
+	leftType schema.Type,
+	identifier string,
+	path *PathTree,
+) (schema.Type, *PathTree, []*PathTree, error) {
 	switch leftType.TypeID() {
-	case schema.TypeIDList:
-		// Lists can only have numeric indexes, therefore we need to convert the types to integers. Since internally
-		// the SDK doesn't use anything but ints, that's what we are converting to.
-		var listItem any
-		switch k := key.(type) {
-		case int:
-		case int64:
-			listItem = k
-		default:
-			return nil, nil, nil, fmt.Errorf("bug: invalid key type encountered for map key: %T", key)
-		}
-		if path != nil {
-			path.Extraneous = append(path.Extraneous, listItem)
-		}
-		return leftType.(*schema.ListSchema).ItemsValue, path, []*PathTree{}, nil
-	case schema.TypeIDMap:
-		// Maps can have various key types, so we need to unserialize the passed key according to its schema and use
-		// it to find the correct key.
-		mapType := leftType.(schema.UntypedMap)
-		if _, err := mapType.Keys().Unserialize(key); err != nil {
-			return nil, nil, nil, fmt.Errorf("cannot unserialize map key type %v (%w)", key, err)
-		}
-		if path != nil {
-			path.Extraneous = append(path.Extraneous, key)
-		}
-		return mapType.Values(), path, []*PathTree{}, nil
-	case schema.TypeIDObject:
-		fallthrough
-	case schema.TypeIDRef:
-		fallthrough
-	case schema.TypeIDScope:
+	case schema.TypeIDScope, schema.TypeIDRef, schema.TypeIDObject:
 		// Object-likes always have field names (strings) as keys, so we need to convert the passed value to a string.
 		// 99% of the time these are going to be strings anyway.
-		var objectItem string
-		switch k := key.(type) {
-		case string:
-			objectItem = k
-		case int:
-			objectItem = fmt.Sprintf("%d", k)
-		default:
-			return nil, nil, nil, fmt.Errorf("bug: invalid key type encountered for object key: %T", key)
-		}
-
 		currentObject := leftType.(schema.Object)
 		properties := currentObject.Properties()
-		property, ok := properties[objectItem]
+		property, ok := properties[identifier]
 		if !ok {
-			return nil, nil, nil, fmt.Errorf("object %s does not have a property named %s", currentObject.ID(), objectItem)
+			return nil, nil, nil, fmt.Errorf("object %s does not have a property named %q", currentObject.ID(), identifier)
 		}
 		pathItem := &PathTree{
-			PathItem: key,
-			Subtrees: nil,
+			PathItem:     identifier,
+			IsExtraneous: false,
+			Subtrees:     nil,
 		}
 		if path != nil {
 			path.Subtrees = append(path.Subtrees, pathItem)
 		}
 		return property.Type(), pathItem, []*PathTree{}, nil
 	case schema.TypeIDAny:
-		if path != nil {
-			path.Extraneous = append(path.Extraneous, key)
+		// We're accessing an unvalidated field, because the type is 'any.
+		// So mark the subtree as extraneous.
+		pathItem := &PathTree{
+			PathItem:     identifier,
+			IsExtraneous: true,
+			Subtrees:     nil,
 		}
-		return leftType, path, []*PathTree{}, nil
+		if path != nil {
+			path.Subtrees = append(path.Subtrees, pathItem)
+		}
+		return schema.NewAnySchema(), pathItem, []*PathTree{}, nil
 	default:
-		return nil, nil, nil, fmt.Errorf("cannot evaluate expression identifier %s on data type %s", key, leftType.TypeID())
+		return nil, nil, nil,
+			fmt.Errorf("cannot evaluate expression identifier %s on data type %s", identifier, leftType.TypeID())
 	}
 }
