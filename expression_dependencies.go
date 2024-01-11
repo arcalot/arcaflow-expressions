@@ -59,10 +59,70 @@ func (c *dependencyContext) dependencies(
 		return schema.NewStringSchema(nil, nil, nil), nil, []*PathTree{}, nil
 	case *ast.IntLiteral:
 		return schema.NewIntSchema(nil, nil, nil), nil, []*PathTree{}, nil
+	case *ast.FloatLiteral:
+		return schema.NewFloatSchema(nil, nil, nil), nil, []*PathTree{}, nil
+	case *ast.BooleanLiteral:
+		return schema.NewBoolSchema(), nil, []*PathTree{}, nil
+	case *ast.BinaryOperation:
+		return c.binaryOperationDependencies(n)
+	case *ast.UnaryOperation:
+		return c.dependencies(n.RightNode, currentType, path) // Unary operations don't change dependencies.
 	case *ast.FunctionCall:
 		return c.functionDependencies(n)
 	default:
 		return nil, nil, nil, fmt.Errorf("unsupported AST node type: %T", n)
+	}
+}
+
+func (c *dependencyContext) binaryOperationDependencies(
+	node *ast.BinaryOperation,
+) (schema.Type, *PathTree, []*PathTree, error) {
+	leftType, _, leftDependencies, err := c.rootDependencies(node.LeftNode)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	// Right dependencies, using left type.
+	rightType, _, rightDependencies, err := c.rootDependencies(node.RightNode)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	// Validate same type. This is a requirement for binary operations.
+	// If that is not good for your use case, don't change this. Instead, use a type cast function.
+	if leftType.TypeID() != rightType.TypeID() {
+		return nil, nil, nil,
+			fmt.Errorf("left (%s) and right (%s) types do not match in binary operation (%s)",
+				leftType.TypeID(), rightType.TypeID(), node.Operation.String())
+	}
+	// Combine the left and right dependencies.
+	finalDependencies := append(rightDependencies, leftDependencies...)
+
+	// Validate valid operations with the type, and the return type for the combination. Then return.
+	switch node.Operation {
+	case ast.Add, ast.Subtract, ast.Multiply, ast.Divide, ast.Modulus, ast.Power:
+		// Math. Same as type going in. Plus validate that it's numeric.
+		switch leftType.TypeID() {
+		case schema.TypeIDInt, schema.TypeIDFloat:
+			return leftType, nil, finalDependencies, nil
+		default:
+			return nil, nil, nil,
+				fmt.Errorf("attempted mathematical operation %s on unsupported or incompatible type %s",
+					node.Operation.String(), leftType.TypeID())
+		}
+	case ast.Equals, ast.NotEquals, ast.GreaterThan, ast.LessThan, ast.GreaterThanEquals, ast.LessThanEquals:
+		// Comparison. Any type in. Boolean out.
+		return schema.NewBoolSchema(), nil, finalDependencies, nil
+	case ast.And, ast.Or:
+		// Boolean operations. Bool in and out.
+		if leftType.TypeID() != schema.TypeIDBool {
+			return nil, nil, nil,
+				fmt.Errorf("attempted boolean operation %s on non-boolean type %s",
+					node.Operation.String(), leftType.TypeID())
+		}
+		return schema.NewBoolSchema(), nil, finalDependencies, nil
+	case ast.Invalid:
+		return nil, nil, nil, fmt.Errorf("attempted to perform invalid operation (binary operation type invalid)")
+	default:
+		return nil, nil, nil, fmt.Errorf("bug: binary operation %s missing from dependency evaluation code", node.Operation)
 	}
 }
 
@@ -113,6 +173,7 @@ func (c *dependencyContext) functionDependencies(node *ast.FunctionCall) (schema
 //
 // The dot notation is when item.item is encountered. We simply traverse the AST in order, left to right,
 // nothing specific to do.
+// While this is technically a binary operation, this is a special, non-mathematical case of it.
 func (c *dependencyContext) dotNotationDependencies(
 	node *ast.DotNotation,
 	currentType schema.Type,

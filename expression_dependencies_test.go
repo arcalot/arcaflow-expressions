@@ -385,3 +385,18 @@ func TestFunctionDependencyResolution_dynamicTyping(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported data type")
 }
+
+// Test simple integer math, same type
+// Test int and float math, error mixed types
+// Test math with literal and reference.
+// Test math with two references, with the same reference.
+// Test math with two references, with different references.
+// Test unary operation with literals.
+// Test unary operation with references.
+// Test comparison with all supported types
+// Test boolean operations with literals
+// Test boolean operations with comparisons
+// Test int and float math, mixed with cast function.
+// Test non-numeric types for math
+// Test comparison with differing types
+//
