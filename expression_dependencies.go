@@ -160,7 +160,6 @@ func (c *dependencyContext) dotNotationDependencies(
 	if err != nil {
 		return nil, err
 	}
-	// If the left isn't chainable, we use include its dependencies.
 	finalDependencies := append(rightResult.completedPaths, leftResult.completedPaths...)
 	return &dependencyResult{
 		resolvedType:   rightResult.resolvedType,
@@ -255,9 +254,7 @@ func (c *dependencyContext) addExtraneous(node ast.Node, path *PathTree) *PathTr
 				IsExtraneous: true,
 				Subtrees:     nil,
 			}
-			if path != nil {
-				path.Subtrees = append(path.Subtrees, pathItem)
-			}
+			path.Subtrees = append(path.Subtrees, pathItem) // A nil check was done earlier.
 			return pathItem
 		}
 	}
@@ -310,7 +307,7 @@ func dependenciesAccessObject(
 		}
 		return newDependencyResult(property.Type(), pathItem), nil
 	case schema.TypeIDAny:
-		// We're accessing an unvalidated field, because the type is 'any.
+		// We're accessing an unvalidated field, because the type is 'any'.
 		// So mark the subtree as extraneous.
 		pathItem := &PathTree{
 			PathItem:     identifier,
