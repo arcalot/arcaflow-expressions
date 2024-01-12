@@ -8,7 +8,7 @@ import (
 	"go.flow.arcalot.io/pluginsdk/schema"
 )
 
-var pathStrExtractor = func(value expressions.Path) string {
+func pathStrExtractor(value expressions.Path) string {
 	return value.String()
 }
 
@@ -68,8 +68,8 @@ func TestDependencyResolution(t *testing.T) {
 				path, err := expr.Dependencies(schemaType, nil, nil, true)
 				assert.NoError(t, err)
 				assert.Equals(t, len(path), 1)
-				// Note: if includeExtraneous is set to false, the foo in $.faz["foo"] will be missing because foo is
-				// extraneous due to it being a map key, and when the data type is the `any` type, it will just be "$"
+				// Note: if includeExtraneous is set to false above, the foo in $.faz["foo"] will be missing because foo is
+				// extraneous due to it being a map key, and when the data type is the `any` type, the path will just be "$"
 				assert.Equals(t, path[0].String(), "$.faz.foo")
 			})
 			t.Run("subexpression-invalid", func(t *testing.T) {
@@ -83,8 +83,8 @@ func TestDependencyResolution(t *testing.T) {
 					// Order isn't deterministic, so use contains and length validations.
 					assert.Equals(t, len(path), 2)
 					assert.SliceContainsExtractor(t, pathStrExtractor, "$.foo", path)
-					// Note: if includeExtraneous is set to false, the foo in $.faz.foo will be missing because foo is
-					// extraneous due to it being a map key, and when the data type is the `any` type, it will just be "$"
+					// Note: if includeExtraneous is set to false above, the foo in $.faz.foo will be missing because foo is
+					// extraneous due to it being a map key, and when the data type is the `any` type, the path will just be "$"
 					assert.SliceContainsExtractor(t, pathStrExtractor, "$.faz.foo", path)
 				}
 			})
@@ -185,7 +185,7 @@ func TestFunctionDependencyResolution_singleParam(t *testing.T) {
 }
 
 func TestFunctionDependencyResolution_duplicateDependency(t *testing.T) {
-	// Tests that is doesn't include the same dependency twice.
+	// Tests that it doesn't include the same dependency twice.
 	intInFunc, err := schema.NewCallableFunction(
 		"twoIntIn",
 		[]schema.Type{

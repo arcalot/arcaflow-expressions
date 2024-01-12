@@ -16,14 +16,15 @@ type dependencyContext struct {
 }
 
 type dependencyResult struct {
-	resolvedType   schema.Type
-	chainablePath  *PathTree
-	completedPaths []*PathTree
+	resolvedType   schema.Type // The type resolved for the node specified.
+	chainablePath  *PathTree   // The chainable path for accessing this value, or fields within it.
+	completedPaths []*PathTree // Completed dependency paths.
 }
 
 func (d *dependencyResult) addCompletedDependencies(newCompletedPaths []*PathTree) {
 	d.completedPaths = append(d.completedPaths, newCompletedPaths...)
 }
+
 func (d *dependencyResult) addCompletedDependency(newCompletedPath *PathTree) {
 	d.completedPaths = append(d.completedPaths, newCompletedPath)
 }
@@ -40,6 +41,8 @@ func newUnchainableDependencyResult(t schema.Type) *dependencyResult {
 	return newDependencyResult(t, nil)
 }
 
+// rootDependencies evaluates the dependencies with the dependencies function, but it initializes a new root new,
+// and then adds the final chainable path to the completedPaths slice within the dependencyResult struct.
 func (c *dependencyContext) rootDependencies(
 	node ast.Node,
 ) (*dependencyResult, error) {
@@ -60,13 +63,12 @@ func (c *dependencyContext) rootDependencies(
 // you can also use this function to evaluate the type the resolved expression's value will have.
 //
 // Arguments:
-// - node: The root node of the tree of sub-tree to evaluate.
-// - currentType: The schema, which specifies the values and their types that can be referenced.
-// - path: A reference to the PathTree to the current node, which will have sub-trees added to it.
+//   - node: The AST node to resolve the dependencies for.
+//   - currentType: The schema, which specifies the values and their types that can be referenced for the current node.
+//   - path: A reference to the PathTree to the current node, which will have sub-trees added to it.
+//
 // Returns:
-//   - schema.Type: The schema for the value.
-//   - *PathTree, the chainable path to the subtree node that can be built upon.
-//   - []*PathTree, the path to the values this node depends on in the input schema. Empty if it's a literal.
+//   - *dependencyResult: A reference to the struct that contains the chainable path, the completed paths, and the type.
 //   - error: An error, if encountered.
 func (c *dependencyContext) dependencies(
 	node ast.Node,
@@ -92,7 +94,7 @@ func (c *dependencyContext) dependencies(
 }
 
 // Note: A function itself doesn't have a path dependency, but its args could.
-// Therefore, it cannot be chained, so it doesn't return that type.
+// Therefore, it cannot be chained, so chainablePath is nil.
 func (c *dependencyContext) functionDependencies(node *ast.FunctionCall) (*dependencyResult, error) {
 	// Get the types and dependencies of all parameters.
 	functionSchema, found := c.functions[node.FuncIdentifier.IdentifierName]
@@ -176,9 +178,7 @@ func (c *dependencyContext) bracketAccessorDependencies(
 	path *PathTree,
 ) (*dependencyResult, error) {
 	// A bracket accessor is when an item[item] is encountered. Here we need to evaluate the left tree as usual, then
-	// use the right tree according to its type. This is either a literal (e.g. a string), or it is a subexpression.
-	// Literals will call dependenciesMapKey, while subexpressions need to be evaluated on their own on the root
-	// type.
+	// evaluate the key expression. Once that's done, it uses the current type to return the correct output type.
 	leftResult, err := c.dependencies(node.LeftNode, currentType, path)
 	if err != nil {
 		return nil, err
@@ -193,16 +193,15 @@ func (c *dependencyContext) bracketAccessorDependencies(
 	var overallResult *dependencyResult
 	switch leftResult.resolvedType.TypeID() {
 	case schema.TypeIDMap:
-		overallResult, err = c.bracketSubExprMapDependencies(keyResult.resolvedType, leftResult.resolvedType, leftResult.chainablePath)
+		overallResult, err = c.bracketMapDependencies(keyResult.resolvedType, leftResult.resolvedType, leftResult.chainablePath)
 	case schema.TypeIDList:
 		overallResult, err = c.bracketListDependencies(keyResult.resolvedType, leftResult.resolvedType, leftResult.chainablePath)
 	case schema.TypeIDAny:
 		overallResult, err = &dependencyResult{schema.NewAnySchema(), leftResult.chainablePath, []*PathTree{}}, nil
 	default:
 		// We don't support subexpressions to pick a property on an object type since that would result in
-		// unpredictable behavior and runtime errors. Furthermore, we would not be able to perform type
-		// evaluation.
-		return nil, fmt.Errorf("subexpressions are only supported on map, list, and any types, %s given", currentType.TypeID())
+		// unpredictable behavior and runtime errors. Furthermore, we would not be able to perform type evaluation.
+		return nil, fmt.Errorf("bracket ([]) subexpressions are only supported on 'map', 'list', and 'any' types; %s given", currentType.TypeID())
 	}
 	// For literals, add extraneous data.
 	overallResult.chainablePath = c.addExtraneous(node.RightExpression, overallResult.chainablePath)
@@ -210,9 +209,9 @@ func (c *dependencyContext) bracketAccessorDependencies(
 	return overallResult, err
 }
 
-// bracketSubExprMapDependencies is used to resolve dependencies when a bracket accessor has a subexpression,
+// bracketMapDependencies is used to resolve dependencies when a bracket accessor has a subexpression,
 // with the left type being a map. So format `map[sub-expression]`
-func (c *dependencyContext) bracketSubExprMapDependencies(
+func (c *dependencyContext) bracketMapDependencies(
 	keyType schema.Type,
 	leftType schema.Type,
 	leftPath *PathTree,
@@ -237,9 +236,7 @@ func (c *dependencyContext) bracketListDependencies(
 	// Lists have integer indexes, so we try to make sure that the subexpression is yielding an int or
 	// int-like type. This will have the best chance of not resulting in a runtime error.
 	list := leftType.(schema.UntypedList)
-	switch keyType.TypeID() {
-	case schema.TypeIDInt:
-	default:
+	if keyType.TypeID() != schema.TypeIDInt {
 		return nil, fmt.Errorf("subexpressions resulted in a %s type for a list key, integer expected", keyType.TypeID())
 	}
 	return newDependencyResult(list.Items(), path), nil
@@ -247,18 +244,21 @@ func (c *dependencyContext) bracketListDependencies(
 
 func (c *dependencyContext) addExtraneous(node ast.Node, path *PathTree) *PathTree {
 	// If literal, include that in the extraneous info, only if path present.
-	if path != nil { // Do this check first, to skip the literal check when possible.
-		if literalValue, isLiteral := node.(ast.ValueLiteral); isLiteral {
-			pathItem := &PathTree{
-				PathItem:     literalValue.Value(),
-				IsExtraneous: true,
-				Subtrees:     nil,
-			}
-			path.Subtrees = append(path.Subtrees, pathItem) // A nil check was done earlier.
-			return pathItem
-		}
+	if path == nil { // Do this check first, to skip the literal check when possible.
+		return path
 	}
-	return path
+	var literalValue ast.ValueLiteral
+	var isLiteral bool
+	if literalValue, isLiteral = node.(ast.ValueLiteral); !isLiteral {
+		return path
+	}
+	pathItem := &PathTree{
+		PathItem:     literalValue.Value(),
+		IsExtraneous: true,
+		Subtrees:     nil,
+	}
+	path.Subtrees = append(path.Subtrees, pathItem)
+	return pathItem
 }
 
 func (c *dependencyContext) identifierDependencies(
@@ -280,7 +280,7 @@ func (c *dependencyContext) identifierDependencies(
 	}
 }
 
-// dependenciesAccessKnownKey this function reads the object on the left to determine
+// dependenciesAccessObject reads the object on the left to determine
 // the type of the property referenced.
 func dependenciesAccessObject(
 	leftType schema.Type,
@@ -289,8 +289,6 @@ func dependenciesAccessObject(
 ) (*dependencyResult, error) {
 	switch leftType.TypeID() {
 	case schema.TypeIDScope, schema.TypeIDRef, schema.TypeIDObject:
-		// Object-likes always have field names (strings) as keys, so we need to convert the passed value to a string.
-		// 99% of the time these are going to be strings anyway.
 		currentObject := leftType.(schema.Object)
 		properties := currentObject.Properties()
 		property, ok := properties[identifier]
