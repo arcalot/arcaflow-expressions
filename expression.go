@@ -63,11 +63,11 @@ func (e expression) Type(scope schema.Scope, functions map[string]schema.Functio
 		workflowContext: workflowContext,
 		functions:       functions,
 	}
-	result, _, _, err := d.rootDependencies(e.ast)
+	dependencyResolutionResult, err := d.rootDependencies(e.ast)
 	if err != nil {
 		return nil, err
 	}
-	return result, nil
+	return dependencyResolutionResult.resolvedType, nil
 }
 
 func (e expression) Dependencies(
@@ -86,13 +86,13 @@ func (e expression) Dependencies(
 		workflowContext: workflowContext,
 		functions:       functions,
 	}
-	_, _, dependencies, err := d.rootDependencies(e.ast)
+	dependencyResolutionResult, err := d.rootDependencies(e.ast)
 	if err != nil {
 		return nil, err
 	}
 	// Now convert to paths, saving only unique values.
 	finalDependencyMap := make(map[string]Path)
-	for _, dependencyTree := range dependencies {
+	for _, dependencyTree := range dependencyResolutionResult.completedPaths {
 		unpackedDependencies := dependencyTree.Unpack(includeExtraneous)
 		for _, dependency := range unpackedDependencies {
 			asString := dependency.String()
