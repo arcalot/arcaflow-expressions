@@ -8,6 +8,29 @@ import (
 // Path describes the path needed to take to reach an item. Items can either be strings or integers.
 type Path []any
 
+type PathNodeType string
+
+const (
+	// DataRootNode is a node describing the root data path '$'
+	// The valid PathItem for this node type is '$'
+	DataRootNode PathNodeType = "root"
+	// FunctionNode is a node describing a function access. It is a type of root node.
+	// The valid PathItems for this node type are function name strings.
+	FunctionNode PathNodeType = "function"
+	// AccessNode is accessing a field within the object preceding it.
+	// Valid PathItems for this node type are object field names strings.
+	AccessNode PathNodeType = "access"
+	// KeyNode means that it's a node that describes the access to the node preceding it. It could be describing
+	// an integer literal index, or a string literal map key. This info is useful in the cases where the index or
+	// map key can change the dependency.
+	// Valid PathItems for this node type are integers for indexes, or strings or integers for map accesses.
+	KeyNode PathNodeType = "key"
+	// PastTerminalNode refers to a value access that is past a terminal value. An any type is a terminal value.
+	// This node type means it's trying to access a value within an any type.
+	// Valid PathItems for this node type are object field names strings.
+	PastTerminalNode PathNodeType = "past-terminal"
+)
+
 // String returns the dot-concatenated string version of the path as an Arcaflow-expression.
 func (p Path) String() string {
 	items := make([]string, len(p))
@@ -22,23 +45,24 @@ func (p Path) String() string {
 type PathTree struct {
 	// The value at the part of the tree
 	PathItem any
-	// Extra values that do not contribute to the validated path, like within `any` values, or map indexes
-	IsExtraneous bool
-	Subtrees     []*PathTree
+	NodeType PathNodeType
+	Subtrees []*PathTree
 }
 
 // Unpack unpacks the path tree into a list of paths.
-func (p PathTree) Unpack(includeExtraneous bool) []Path {
-	if !includeExtraneous && p.IsExtraneous {
-		// This one is extraneous, so exit without any paths.
+func (p PathTree) Unpack(requirements UnpackRequirements) []Path {
+	if requirements.shouldStop(p.NodeType) || len(p.Subtrees) == 0 && requirements.shouldSkip(p.NodeType) {
 		return []Path{}
 	}
 	var result []Path
 
 	for _, subtree := range p.Subtrees {
-		for _, subtreeResult := range subtree.Unpack(includeExtraneous) {
-			// First, this path item
-			currentPathNodes := []any{p.PathItem}
+		for _, subtreeResult := range subtree.Unpack(requirements) {
+			currentPathNodes := make([]any, 0)
+			// First, this path item, if not skipping it
+			if !requirements.shouldSkip(p.NodeType) {
+				currentPathNodes = append(currentPathNodes, p.PathItem)
+			}
 			// Second, add the subtrees
 			currentPathNodes = append(currentPathNodes, subtreeResult...)
 			result = append(result, currentPathNodes)
@@ -48,4 +72,30 @@ func (p PathTree) Unpack(includeExtraneous bool) []Path {
 		result = append(result, []any{p.PathItem})
 	}
 	return result
+}
+
+type UnpackRequirements struct {
+	IncludeDataRootPaths     bool // Include paths that start at data root
+	IncludeFunctionRootPaths bool // Include paths that start at a function
+	StopAtTerminals          bool // Whether to stop at terminals (any types are terminals).
+	IncludeKeys              bool // Whether to include the keys in the path. // Example, the 0 in `$ -> list -> 0 -> a`
+}
+
+func (r *UnpackRequirements) shouldStop(nodeType PathNodeType) bool {
+	switch nodeType {
+	case DataRootNode:
+		return !r.IncludeDataRootPaths
+	case FunctionNode:
+		return !r.IncludeFunctionRootPaths
+	case PastTerminalNode:
+		return r.StopAtTerminals
+	case AccessNode, KeyNode:
+		fallthrough
+	default:
+		return false
+	}
+}
+
+func (r *UnpackRequirements) shouldSkip(nodeType PathNodeType) bool {
+	return nodeType == KeyNode && !r.IncludeKeys
 }

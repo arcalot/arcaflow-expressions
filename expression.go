@@ -32,9 +32,8 @@ type Expression interface {
 	// construct a dependency tree based on expressions.
 	// Returns the path to the object in the schema that it depends on, or nil if it's a literal that doesn't depend
 	// on it.
-	// includeExtraneous specifies whether to include things not explicitly present in the schema, like values within
-	// any types, or indexes in lists.
-	Dependencies(schema schema.Type, functions map[string]schema.Function, workflowContext map[string][]byte, includeExtraneous bool) ([]Path, error)
+	// unpackRequirements specifies which paths to include, and which values to include in paths.
+	Dependencies(schema schema.Type, functions map[string]schema.Function, workflowContext map[string][]byte, unapackRequirements UnpackRequirements) ([]Path, error)
 	// Evaluate evaluates the expression on the given data set regardless of any
 	// schema. The caller is responsible for validating the expected schema.
 	Evaluate(data any, functions map[string]schema.CallableFunction, workflowContext map[string][]byte) (any, error)
@@ -55,6 +54,7 @@ func (e expression) String() string {
 func (e expression) Type(scope schema.Scope, functions map[string]schema.Function, workflowContext map[string][]byte) (schema.Type, error) {
 	tree := PathTree{
 		PathItem: "$",
+		NodeType: DataRootNode,
 		Subtrees: nil,
 	}
 	d := &dependencyContext{
@@ -74,10 +74,11 @@ func (e expression) Dependencies(
 	scope schema.Type,
 	functions map[string]schema.Function,
 	workflowContext map[string][]byte,
-	includeExtraneous bool,
+	unpackRequirements UnpackRequirements,
 ) ([]Path, error) {
 	root := PathTree{
 		PathItem: "$",
+		NodeType: DataRootNode,
 		Subtrees: nil,
 	}
 	d := &dependencyContext{
@@ -93,7 +94,7 @@ func (e expression) Dependencies(
 	// Now convert to paths, saving only unique values.
 	finalDependencyMap := make(map[string]Path)
 	for _, dependencyTree := range dependencyResolutionResult.completedPaths {
-		unpackedDependencies := dependencyTree.Unpack(includeExtraneous)
+		unpackedDependencies := dependencyTree.Unpack(unpackRequirements)
 		for _, dependency := range unpackedDependencies {
 			asString := dependency.String()
 			_, dependencyExists := finalDependencyMap[asString]
