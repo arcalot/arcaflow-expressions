@@ -92,22 +92,18 @@ func (e expression) Dependencies(
 		return nil, err
 	}
 	// Now convert to paths, saving only unique values.
-	finalDependencyMap := make(map[string]Path)
+	finalDependencySet := make(map[string]bool)
+	finalDependencies := make([]Path, 0)
 	for _, dependencyTree := range dependencyResolutionResult.completedPaths {
 		unpackedDependencies := dependencyTree.Unpack(unpackRequirements)
 		for _, dependency := range unpackedDependencies {
 			asString := dependency.String()
-			_, dependencyExists := finalDependencyMap[asString]
+			_, dependencyExists := finalDependencySet[asString]
 			if !dependencyExists {
-				finalDependencyMap[asString] = dependency
+				finalDependencies = append(finalDependencies, dependency)
+				finalDependencySet[asString] = true
 			}
 		}
-	}
-	finalDependencies := make([]Path, len(finalDependencyMap))
-	i := 0
-	for _, v := range finalDependencyMap {
-		finalDependencies[i] = v
-		i += 1
 	}
 	return finalDependencies, nil
 }

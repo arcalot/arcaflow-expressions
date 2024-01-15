@@ -51,7 +51,7 @@ type PathTree struct {
 
 // Unpack unpacks the path tree into a list of paths.
 func (p PathTree) Unpack(requirements UnpackRequirements) []Path {
-	if requirements.shouldStop(p.NodeType) || len(p.Subtrees) == 0 && requirements.shouldSkip(p.NodeType) {
+	if requirements.shouldStop(p.NodeType) {
 		return []Path{}
 	}
 	var result []Path
@@ -68,9 +68,15 @@ func (p PathTree) Unpack(requirements UnpackRequirements) []Path {
 			result = append(result, currentPathNodes)
 		}
 	}
-	if len(result) == 0 { // Happens when the fields are excluded based on the current requirements
-		result = append(result, []any{p.PathItem})
+
+	// An empty result happens when either there are zero subtrees, or the
+	// subtrees are excluded based on the current requirements.
+	// Return the current path if the current path node should be an included
+	// leaf node. Skipped nodes should not.
+	if len(result) == 0 && !requirements.shouldSkip(p.NodeType) {
+		return []Path{[]any{p.PathItem}}
 	}
+
 	return result
 }
 

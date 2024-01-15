@@ -39,19 +39,16 @@ func TestPathTree_UnpackDataPaths(t *testing.T) {
 	noKeyRequirements := expressions.UnpackRequirements{
 		ExcludeDataRootPaths:     false,
 		ExcludeFunctionRootPaths: true,
-		StopAtTerminals:          false,
 		IncludeKeys:              false,
 	}
 	withKeyRequirements := expressions.UnpackRequirements{
 		ExcludeDataRootPaths:     false,
 		ExcludeFunctionRootPaths: true,
-		StopAtTerminals:          false,
 		IncludeKeys:              true,
 	}
 	noDataRootRequirements := expressions.UnpackRequirements{
 		ExcludeDataRootPaths:     true,
 		ExcludeFunctionRootPaths: true,
-		StopAtTerminals:          false,
 		IncludeKeys:              true,
 	}
 	pathsWithoutKeys := pathTree.Unpack(noKeyRequirements)
@@ -83,14 +80,10 @@ func TestPathTree_UnpackFuncPaths(t *testing.T) {
 	noDataRootRequirements := expressions.UnpackRequirements{
 		ExcludeDataRootPaths:     true,
 		ExcludeFunctionRootPaths: false,
-		StopAtTerminals:          false,
-		IncludeKeys:              true,
 	}
 	noFunctionsRootRequirements := expressions.UnpackRequirements{
 		ExcludeDataRootPaths:     false,
 		ExcludeFunctionRootPaths: true,
-		StopAtTerminals:          false,
-		IncludeKeys:              true,
 	}
 
 	pathsWithoutDataRoot := pathTree.Unpack(noDataRootRequirements)
