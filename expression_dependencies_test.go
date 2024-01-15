@@ -8,10 +8,6 @@ import (
 	"go.flow.arcalot.io/pluginsdk/schema"
 )
 
-func pathStrExtractor(value expressions.Path) string {
-	return value.String()
-}
-
 var noKeyOrPastTerminalRequirements = expressions.UnpackRequirements{
 	ExcludeDataRootPaths:     false,
 	ExcludeFunctionRootPaths: true,
