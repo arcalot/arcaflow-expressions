@@ -30,16 +30,6 @@ func (d *dependencyResult) addCompletedDependency(newCompletedPath *PathTree) {
 	d.completedPaths = append(d.completedPaths, newCompletedPath)
 }
 
-// For literals
-func newUnchainableDependencyResult(t schema.Type) *dependencyResult {
-	return &dependencyResult{
-		resolvedType:   t,
-		chainablePath:  nil,
-		rootPathResult: nil,
-		completedPaths: []*PathTree{},
-	}
-}
-
 // rootDependencies evaluates the dependencies with a new root, and populates the completedPaths field with the new root.
 func (c *dependencyContext) rootDependencies(
 	node ast.Node,
@@ -81,9 +71,9 @@ func (c *dependencyContext) dependencies(
 	case *ast.Identifier:
 		return c.identifierDependencies(n, currentType, path)
 	case *ast.StringLiteral:
-		return newUnchainableDependencyResult(schema.NewStringSchema(nil, nil, nil)), nil
+		return &dependencyResult{resolvedType: schema.NewStringSchema(nil, nil, nil)}, nil
 	case *ast.IntLiteral:
-		return newUnchainableDependencyResult(schema.NewIntSchema(nil, nil, nil)), nil
+		return &dependencyResult{resolvedType: schema.NewIntSchema(nil, nil, nil)}, nil
 	case *ast.FunctionCall:
 		return c.functionDependencies(n)
 	default:
@@ -201,14 +191,13 @@ func (c *dependencyContext) bracketAccessorDependencies(
 		overallResult, err = c.bracketListDependencies(leftResult, keyResult.resolvedType)
 	case schema.TypeIDAny:
 		overallResult, err = &dependencyResult{
-			schema.NewAnySchema(),
-			leftResult.chainablePath,
-			leftResult.rootPathResult,
-			[]*PathTree{},
+			resolvedType:   schema.NewAnySchema(),
+			chainablePath:  leftResult.chainablePath,
+			rootPathResult: leftResult.rootPathResult,
 		}, nil
 	case schema.TypeIDScope, schema.TypeIDObject, schema.TypeIDRef:
 		// This is supported in JavaScript, but not this expression language. This is because objects have
-		// different types for each value, meaning that the type cannot be determined at this point.
+		// different types for each field, meaning that the type cannot be determined at this point.
 		return nil, fmt.Errorf(
 			"bracket ([]) access is not supported for object/scope/ref types; please use dot notation",
 		)
@@ -241,7 +230,6 @@ func (c *dependencyContext) bracketMapDependencies(
 		resolvedType:   mapType.Values(),
 		chainablePath:  leftResult.chainablePath,
 		rootPathResult: leftResult.rootPathResult,
-		completedPaths: []*PathTree{},
 	}, nil
 }
 
@@ -251,7 +239,7 @@ func (c *dependencyContext) bracketListDependencies(
 	leftResult *dependencyResult,
 	keyType schema.Type,
 ) (*dependencyResult, error) {
-	// Lists have integer indexes, so we try to make sure that the subexpression is yielding an int.
+	// Lists have integer indexes, so make sure that the subexpression is yielding an int.
 	list := leftResult.resolvedType.(schema.UntypedList)
 	if keyType.TypeID() != schema.TypeIDInt {
 		return nil, fmt.Errorf("subexpressions resulted in a %s type for a list key, integer expected", keyType.TypeID())
@@ -260,7 +248,6 @@ func (c *dependencyContext) bracketListDependencies(
 		resolvedType:   list.Items(), // The type is the type for an individual item of the list.
 		chainablePath:  leftResult.chainablePath,
 		rootPathResult: leftResult.rootPathResult,
-		completedPaths: []*PathTree{},
 	}, nil
 }
 
@@ -295,19 +282,16 @@ func (c *dependencyContext) identifierDependencies(
 				NodeType: DataRootNode,
 				Subtrees: nil,
 			}
-		} else {
-			// Validate that the path is a root path.
-			if path.NodeType != DataRootNode {
-				return nil, fmt.Errorf("root access %q of type %q not at root", path.PathItem, path.NodeType)
-			}
+		} else if path.NodeType == DataRootNode {
 			root = path
+		} else {
+			return nil, fmt.Errorf("root access %q of type %q not at root", path.PathItem, path.NodeType)
 		}
 		// The path is validated as the root already.
 		return &dependencyResult{
 			resolvedType:   c.rootType,
 			chainablePath:  path,
 			rootPathResult: root,
-			completedPaths: []*PathTree{},
 		}, nil
 	default:
 		// This case is the item.item type expression, where the right item is the "identifier" in question.
@@ -337,10 +321,10 @@ func dependenciesAccessObject(
 		}
 		path.Subtrees = append(path.Subtrees, pathItem)
 		return &dependencyResult{
-			resolvedType:   property.Type(),
-			chainablePath:  pathItem,
-			rootPathResult: path, // In case the root isn't specified
-			completedPaths: []*PathTree{},
+			resolvedType:  property.Type(),
+			chainablePath: pathItem,
+			// In case the root isn't explicitly set with '$.', set the root to the current path.
+			rootPathResult: path,
 		}, nil
 	case schema.TypeIDAny:
 		// Since the left type is any (a terminal type), this access (deeper than the 'any' node) is past-terminal.
@@ -351,10 +335,8 @@ func dependenciesAccessObject(
 		}
 		path.Subtrees = append(path.Subtrees, pathItem)
 		return &dependencyResult{
-			resolvedType:   schema.NewAnySchema(),
-			chainablePath:  pathItem,
-			rootPathResult: nil,
-			completedPaths: []*PathTree{},
+			resolvedType:  schema.NewAnySchema(),
+			chainablePath: pathItem,
 		}, nil
 	default:
 		return nil, fmt.Errorf("cannot evaluate expression identifier %s on data type %s", identifier, leftType.TypeID())

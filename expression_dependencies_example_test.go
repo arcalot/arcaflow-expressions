@@ -31,8 +31,8 @@ func ExampleExpression_Dependencies() {
 		panic(err)
 	}
 	unpackRequirements := expressions.UnpackRequirements{
-		IncludeDataRootPaths:     true,
-		IncludeFunctionRootPaths: false,
+		ExcludeDataRootPaths:     false,
+		ExcludeFunctionRootPaths: true,
 		StopAtTerminals:          false,
 		IncludeKeys:              false,
 	}

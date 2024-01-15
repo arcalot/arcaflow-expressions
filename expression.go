@@ -33,7 +33,7 @@ type Expression interface {
 	// Returns the path to the object in the schema that it depends on, or nil if it's a literal that doesn't depend
 	// on it.
 	// unpackRequirements specifies which paths to include, and which values to include in paths.
-	Dependencies(schema schema.Type, functions map[string]schema.Function, workflowContext map[string][]byte, unapackRequirements UnpackRequirements) ([]Path, error)
+	Dependencies(schema schema.Type, functions map[string]schema.Function, workflowContext map[string][]byte, unpackRequirements UnpackRequirements) ([]Path, error)
 	// Evaluate evaluates the expression on the given data set regardless of any
 	// schema. The caller is responsible for validating the expected schema.
 	Evaluate(data any, functions map[string]schema.CallableFunction, workflowContext map[string][]byte) (any, error)

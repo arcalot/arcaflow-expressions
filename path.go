@@ -68,15 +68,15 @@ func (p PathTree) Unpack(requirements UnpackRequirements) []Path {
 			result = append(result, currentPathNodes)
 		}
 	}
-	if len(result) == 0 { // Happens when there are only extraneous subtrees
+	if len(result) == 0 { // Happens when the fields are excluded based on the current requirements
 		result = append(result, []any{p.PathItem})
 	}
 	return result
 }
 
 type UnpackRequirements struct {
-	IncludeDataRootPaths     bool // Include paths that start at data root
-	IncludeFunctionRootPaths bool // Include paths that start at a function
+	ExcludeDataRootPaths     bool // Exclude paths that start at data root
+	ExcludeFunctionRootPaths bool // Exclude paths that start at a function
 	StopAtTerminals          bool // Whether to stop at terminals (any types are terminals).
 	IncludeKeys              bool // Whether to include the keys in the path. // Example, the 0 in `$ -> list -> 0 -> a`
 }
@@ -84,15 +84,15 @@ type UnpackRequirements struct {
 func (r *UnpackRequirements) shouldStop(nodeType PathNodeType) bool {
 	switch nodeType {
 	case DataRootNode:
-		return !r.IncludeDataRootPaths
+		return r.ExcludeDataRootPaths
 	case FunctionNode:
-		return !r.IncludeFunctionRootPaths
+		return r.ExcludeFunctionRootPaths
 	case PastTerminalNode:
 		return r.StopAtTerminals
 	case AccessNode, KeyNode:
-		fallthrough
-	default:
 		return false
+	default:
+		panic(fmt.Errorf("node type %q missing in shouldStop in path", nodeType))
 	}
 }
 

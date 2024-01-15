@@ -37,20 +37,20 @@ func TestPathTree_UnpackDataPaths(t *testing.T) {
 		},
 	}
 	noKeyRequirements := expressions.UnpackRequirements{
-		IncludeDataRootPaths:     true,
-		IncludeFunctionRootPaths: false,
+		ExcludeDataRootPaths:     false,
+		ExcludeFunctionRootPaths: true,
 		StopAtTerminals:          false,
 		IncludeKeys:              false,
 	}
 	withKeyRequirements := expressions.UnpackRequirements{
-		IncludeDataRootPaths:     true,
-		IncludeFunctionRootPaths: false,
+		ExcludeDataRootPaths:     false,
+		ExcludeFunctionRootPaths: true,
 		StopAtTerminals:          false,
 		IncludeKeys:              true,
 	}
 	noDataRootRequirements := expressions.UnpackRequirements{
-		IncludeDataRootPaths:     false,
-		IncludeFunctionRootPaths: false,
+		ExcludeDataRootPaths:     true,
+		ExcludeFunctionRootPaths: true,
 		StopAtTerminals:          false,
 		IncludeKeys:              true,
 	}
@@ -81,14 +81,14 @@ func TestPathTree_UnpackFuncPaths(t *testing.T) {
 	}
 
 	noDataRootRequirements := expressions.UnpackRequirements{
-		IncludeDataRootPaths:     false,
-		IncludeFunctionRootPaths: true,
+		ExcludeDataRootPaths:     true,
+		ExcludeFunctionRootPaths: false,
 		StopAtTerminals:          false,
 		IncludeKeys:              true,
 	}
 	noFunctionsRootRequirements := expressions.UnpackRequirements{
-		IncludeDataRootPaths:     true,
-		IncludeFunctionRootPaths: false,
+		ExcludeDataRootPaths:     false,
+		ExcludeFunctionRootPaths: true,
 		StopAtTerminals:          false,
 		IncludeKeys:              true,
 	}

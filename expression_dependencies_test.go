@@ -13,20 +13,20 @@ func pathStrExtractor(value expressions.Path) string {
 }
 
 var noKeyOrPastTerminalRequirements = expressions.UnpackRequirements{
-	IncludeDataRootPaths:     true,
-	IncludeFunctionRootPaths: false,
+	ExcludeDataRootPaths:     false,
+	ExcludeFunctionRootPaths: true,
 	StopAtTerminals:          true,
 	IncludeKeys:              false,
 }
 var fullDataRequirements = expressions.UnpackRequirements{
-	IncludeDataRootPaths:     true,
-	IncludeFunctionRootPaths: false,
+	ExcludeDataRootPaths:     false,
+	ExcludeFunctionRootPaths: true,
 	StopAtTerminals:          false,
 	IncludeKeys:              true,
 }
 var withFunctionsRequirements = expressions.UnpackRequirements{
-	IncludeDataRootPaths:     true,
-	IncludeFunctionRootPaths: true,
+	ExcludeDataRootPaths:     false,
+	ExcludeFunctionRootPaths: false,
 	StopAtTerminals:          false,
 	IncludeKeys:              true,
 }
@@ -63,7 +63,8 @@ func TestDependencyResolution(t *testing.T) {
 				assert.NoError(t, err)
 				paths, err := expr.Dependencies(schemaType, nil, nil, fullDataRequirements)
 				if name == "any" {
-					// There isn't enough info to say this for an any type, but it passes as extraneous
+					// There isn't enough info to say this for an any type, but we set in the requirements
+					// to include past-terminal (any) data types.
 					assert.NoError(t, err)
 					assert.Equals(t, len(paths), 1)
 					assert.Equals(t, paths[0].String(), "$.foo.bar")
