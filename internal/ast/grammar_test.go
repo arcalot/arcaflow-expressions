@@ -560,3 +560,12 @@ func TestExpressionInvalidIdentifier(t *testing.T) {
 	_, err = p.ParseExpression()
 	assert.Error(t, err)
 }
+
+func TestExpressionErrorChainLiteral(t *testing.T) {
+	expression := `"a".a`
+	p, err := InitParser(expression, t.Name())
+	assert.NoError(t, err)
+	_, err = p.ParseExpression()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "Expected end of expression")
+}

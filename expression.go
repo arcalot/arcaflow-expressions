@@ -32,7 +32,8 @@ type Expression interface {
 	// construct a dependency tree based on expressions.
 	// Returns the path to the object in the schema that it depends on, or nil if it's a literal that doesn't depend
 	// on it.
-	Dependencies(schema schema.Type, functions map[string]schema.Function, workflowContext map[string][]byte) ([]Path, error)
+	// unpackRequirements specifies which paths to include, and which values to include in paths.
+	Dependencies(schema schema.Type, functions map[string]schema.Function, workflowContext map[string][]byte, unpackRequirements UnpackRequirements) ([]Path, error)
 	// Evaluate evaluates the expression on the given data set regardless of any
 	// schema. The caller is responsible for validating the expected schema.
 	Evaluate(data any, functions map[string]schema.CallableFunction, workflowContext map[string][]byte) (any, error)
@@ -51,8 +52,9 @@ func (e expression) String() string {
 }
 
 func (e expression) Type(scope schema.Scope, functions map[string]schema.Function, workflowContext map[string][]byte) (schema.Type, error) {
-	tree := &PathTree{
+	tree := PathTree{
 		PathItem: "$",
+		NodeType: DataRootNode,
 		Subtrees: nil,
 	}
 	d := &dependencyContext{
@@ -61,29 +63,49 @@ func (e expression) Type(scope schema.Scope, functions map[string]schema.Functio
 		workflowContext: workflowContext,
 		functions:       functions,
 	}
-	result, _, err := d.dependencies(e.ast, scope, tree)
+	dependencyResolutionResult, err := d.rootDependencies(e.ast)
 	if err != nil {
 		return nil, err
 	}
-	return result, nil
+	return dependencyResolutionResult.resolvedType, nil
 }
 
-func (e expression) Dependencies(scope schema.Type, functions map[string]schema.Function, workflowContext map[string][]byte) ([]Path, error) {
-	tree := &PathTree{
+func (e expression) Dependencies(
+	scope schema.Type,
+	functions map[string]schema.Function,
+	workflowContext map[string][]byte,
+	unpackRequirements UnpackRequirements,
+) ([]Path, error) {
+	root := PathTree{
 		PathItem: "$",
+		NodeType: DataRootNode,
 		Subtrees: nil,
 	}
 	d := &dependencyContext{
 		rootType:        scope,
-		rootPath:        tree,
+		rootPath:        root,
 		workflowContext: workflowContext,
 		functions:       functions,
 	}
-	_, _, err := d.dependencies(e.ast, scope, tree)
+	dependencyResolutionResult, err := d.rootDependencies(e.ast)
 	if err != nil {
 		return nil, err
 	}
-	return tree.Unpack(), nil
+	// Now convert to paths, saving only unique values.
+	finalDependencySet := make(map[string]bool)
+	finalDependencies := make([]Path, 0)
+	for _, dependencyTree := range dependencyResolutionResult.completedPaths {
+		unpackedDependencies := dependencyTree.Unpack(unpackRequirements)
+		for _, dependency := range unpackedDependencies {
+			asString := dependency.String()
+			_, dependencyExists := finalDependencySet[asString]
+			if !dependencyExists {
+				finalDependencies = append(finalDependencies, dependency)
+				finalDependencySet[asString] = true
+			}
+		}
+	}
+	return finalDependencies, nil
 }
 
 func (e expression) Evaluate(data any, functions map[string]schema.CallableFunction, workflowContext map[string][]byte) (any, error) {
