@@ -1011,3 +1011,12 @@ func TestExpression_MismatchedPair(t *testing.T) {
 	}
 	assert.Equals(t, grammarErr.ExpectedTokens, []TokenID{ParenthesesEndToken})
 }
+
+func TestExpressionErrorChainLiteral(t *testing.T) {
+	expression := `"a".a`
+	p, err := InitParser(expression, t.Name())
+	assert.NoError(t, err)
+	_, err = p.ParseExpression()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "dot notation cannot follow a literal")
+}

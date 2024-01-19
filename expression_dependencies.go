@@ -15,19 +15,35 @@ type dependencyContext struct {
 	functions       map[string]schema.Function
 }
 
+type dependencyResult struct {
+	resolvedType   schema.Type // The type resolved for the node specified.
+	chainablePath  *PathTree   // The chainable path for accessing this value, or fields within it. The current leaf node.
+	rootPathResult *PathTree   // The root path tree, if known.
+	completedPaths []*PathTree // Completed dependency paths.
+}
+
+func (d *dependencyResult) addCompletedDependencies(newCompletedPaths []*PathTree) {
+	d.completedPaths = append(d.completedPaths, newCompletedPaths...)
+}
+
+func (d *dependencyResult) addCompletedDependency(newCompletedPath *PathTree) {
+	d.completedPaths = append(d.completedPaths, newCompletedPath)
+}
+
+// rootDependencies evaluates the dependencies with a new root, and populates the completedPaths field with the new root.
 func (c *dependencyContext) rootDependencies(
 	node ast.Node,
-) (schema.Type, *PathTree, []*PathTree, error) {
+) (*dependencyResult, error) {
 	newRoot := c.rootPath
-	resolvedType, chainablePath, dependencies, err := c.dependencies(node, c.rootType, &newRoot)
+	result, err := c.dependencies(node, c.rootType, &newRoot)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
-	// Non-chainable types do not have a resultant dependency.
-	if chainablePath != nil {
-		dependencies = append(dependencies, &newRoot)
+	// Currently, literals wouldn't give a path.
+	if result.rootPathResult != nil {
+		result.addCompletedDependency(result.rootPathResult)
 	}
-	return resolvedType, chainablePath, dependencies, nil
+	return result, nil
 }
 
 // dependencies evaluates an AST node for possible dependencies. It adds items to the specified path tree and returns
@@ -35,19 +51,18 @@ func (c *dependencyContext) rootDependencies(
 // you can also use this function to evaluate the type the resolved expression's value will have.
 //
 // Arguments:
-// - node: The root node of the tree of sub-tree to evaluate.
-// - currentType: The schema, which specifies the values and their types that can be referenced.
-// - path: A reference to the PathTree to the current node, which will have sub-trees added to it.
+//   - node: The AST node to resolve the dependencies for.
+//   - currentType: The schema, which specifies the values and their types that can be referenced for the current node.
+//   - path: A reference to the PathTree to the current node, which will have sub-trees added to it.
+//
 // Returns:
-//   - schema.Type: The schema for the value.
-//   - *PathTree, the chainable path to the subtree node that can be built upon.
-//   - []*PathTree, the path to the values this node depends on in the input schema. Empty if it's a literal.
+//   - *dependencyResult: A reference to the struct that contains the chainable path, the completed paths, and the type.
 //   - error: An error, if encountered.
 func (c *dependencyContext) dependencies(
 	node ast.Node,
 	currentType schema.Type,
 	path *PathTree,
-) (schema.Type, *PathTree, []*PathTree, error) {
+) (*dependencyResult, error) {
 	switch n := node.(type) {
 	case *ast.DotNotation:
 		return c.dotNotationDependencies(n, currentType, path)
@@ -56,13 +71,13 @@ func (c *dependencyContext) dependencies(
 	case *ast.Identifier:
 		return c.identifierDependencies(n, currentType, path)
 	case *ast.StringLiteral:
-		return schema.NewStringSchema(nil, nil, nil), nil, []*PathTree{}, nil
+		return &dependencyResult{resolvedType: schema.NewStringSchema(nil, nil, nil)}, nil
 	case *ast.IntLiteral:
-		return schema.NewIntSchema(nil, nil, nil), nil, []*PathTree{}, nil
+		return &dependencyResult{resolvedType: schema.NewIntSchema(nil, nil, nil)}, nil
 	case *ast.FloatLiteral:
-		return schema.NewFloatSchema(nil, nil, nil), nil, []*PathTree{}, nil
+		return &dependencyResult{resolvedType: schema.NewFloatSchema(nil, nil, nil)}, nil
 	case *ast.BooleanLiteral:
-		return schema.NewBoolSchema(), nil, []*PathTree{}, nil
+		return &dependencyResult{resolvedType: schema.NewBoolSchema()}, nil
 	case *ast.BinaryOperation:
 		return c.binaryOperationDependencies(n)
 	case *ast.UnaryOperation:
@@ -70,74 +85,82 @@ func (c *dependencyContext) dependencies(
 	case *ast.FunctionCall:
 		return c.functionDependencies(n)
 	default:
-		return nil, nil, nil, fmt.Errorf("unsupported AST node type: %T", n)
+		return nil, fmt.Errorf("unsupported AST node type: %T", n)
 	}
 }
 
 func (c *dependencyContext) binaryOperationDependencies(
 	node *ast.BinaryOperation,
-) (schema.Type, *PathTree, []*PathTree, error) {
-	leftType, _, leftDependencies, err := c.rootDependencies(node.LeftNode)
+) (*dependencyResult, error) {
+	leftResult, err := c.rootDependencies(node.LeftNode)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 	// Right dependencies, using left type.
-	rightType, _, rightDependencies, err := c.rootDependencies(node.RightNode)
+	rightResult, err := c.rootDependencies(node.RightNode)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 	// Validate same type. This is a requirement for binary operations.
 	// If that is not good for your use case, don't change this. Instead, use a type cast function.
-	if leftType.TypeID() != rightType.TypeID() {
-		return nil, nil, nil,
+	if leftResult.resolvedType.TypeID() != rightResult.resolvedType.TypeID() {
+		return nil,
 			fmt.Errorf("left (%s) and right (%s) types do not match in binary operation (%s)",
-				leftType.TypeID(), rightType.TypeID(), node.Operation.String())
+				leftResult.resolvedType.TypeID(), rightResult.resolvedType.TypeID(), node.Operation.String())
 	}
 	// Combine the left and right dependencies.
-	finalDependencies := append(rightDependencies, leftDependencies...)
+	finalDependencies := append(rightResult.completedPaths, rightResult.completedPaths...)
 
 	// Validate valid operations with the type, and the return type for the combination. Then return.
 	switch node.Operation {
 	case ast.Add, ast.Subtract, ast.Multiply, ast.Divide, ast.Modulus, ast.Power:
 		// Math. Same as type going in. Plus validate that it's numeric.
-		switch leftType.TypeID() {
+		switch leftResult.resolvedType.TypeID() {
 		case schema.TypeIDInt, schema.TypeIDFloat:
-			return leftType, nil, finalDependencies, nil
+			return &dependencyResult{
+				resolvedType:   leftResult.resolvedType,
+				rootPathResult: nil, // Cannot be chained. It's a primitive.
+				completedPaths: finalDependencies,
+			}, nil
 		default:
-			return nil, nil, nil,
+			return nil,
 				fmt.Errorf("attempted mathematical operation %s on unsupported or incompatible type %s",
-					node.Operation.String(), leftType.TypeID())
+					node.Operation.String(), leftResult.resolvedType.TypeID())
 		}
-	case ast.Equals, ast.NotEquals, ast.GreaterThan, ast.LessThan, ast.GreaterThanEquals, ast.LessThanEquals:
-		// Comparison. Any type in. Boolean out.
-		return schema.NewBoolSchema(), nil, finalDependencies, nil
 	case ast.And, ast.Or:
 		// Boolean operations. Bool in and out.
-		if leftType.TypeID() != schema.TypeIDBool {
-			return nil, nil, nil,
+		if leftResult.resolvedType.TypeID() != schema.TypeIDBool {
+			return nil,
 				fmt.Errorf("attempted boolean operation %s on non-boolean type %s",
-					node.Operation.String(), leftType.TypeID())
+					node.Operation.String(), leftResult.resolvedType.TypeID())
 		}
-		return schema.NewBoolSchema(), nil, finalDependencies, nil
+		// Fallthrough because and/or has the same result as the other bool resultant comparisons, but with
+		// the extra check
+		fallthrough
+	case ast.Equals, ast.NotEquals, ast.GreaterThan, ast.LessThan, ast.GreaterThanEquals, ast.LessThanEquals:
+		// Comparison. Any type in. Boolean out.
+		return &dependencyResult{
+			resolvedType:   schema.NewBoolSchema(),
+			rootPathResult: nil, // Cannot be chained. It's a primitive.
+			completedPaths: finalDependencies,
+		}, nil
 	case ast.Invalid:
-		return nil, nil, nil, fmt.Errorf("attempted to perform invalid operation (binary operation type invalid)")
+		return nil, fmt.Errorf("attempted to perform invalid operation (binary operation type invalid)")
 	default:
-		return nil, nil, nil, fmt.Errorf("bug: binary operation %s missing from dependency evaluation code", node.Operation)
+		return nil, fmt.Errorf("bug: binary operation %s missing from dependency evaluation code", node.Operation)
 	}
 }
 
-// Note: A function itself doesn't have a path dependency, but its args could.
-// Therefore, it cannot be chained, so it doesn't return that type.
-func (c *dependencyContext) functionDependencies(node *ast.FunctionCall) (schema.Type, *PathTree, []*PathTree, error) {
+func (c *dependencyContext) functionDependencies(node *ast.FunctionCall) (*dependencyResult, error) {
 	// Get the types and dependencies of all parameters.
 	functionSchema, found := c.functions[node.FuncIdentifier.IdentifierName]
 	if !found {
-		return nil, nil, nil, fmt.Errorf("could not find function '%s'", node.FuncIdentifier.IdentifierName)
+		return nil, fmt.Errorf("could not find function '%s'", node.FuncIdentifier.IdentifierName)
 	}
 	paramTypes := functionSchema.Parameters()
 	// Validate param count
 	if node.ArgumentInputs.NumChildren() != len(paramTypes) {
-		return nil, nil, nil, fmt.Errorf("invalid call to function '%s'. Expected %d args, got %d args. Function schema: %s",
+		return nil, fmt.Errorf("invalid call to function '%s'. Expected %d args, got %d args. Function schema: %s",
 			functionSchema.ID(), len(paramTypes), node.ArgumentInputs.NumChildren(), functionSchema.String())
 	}
 	// Types need to be saved to validate argument types with parameter types, which are also needed to get the output type.
@@ -147,212 +170,245 @@ func (c *dependencyContext) functionDependencies(node *ast.FunctionCall) (schema
 	argTypes := make([]schema.Type, 0)
 	for i := 0; i < len(node.ArgumentInputs.Arguments); i++ {
 		arg := node.ArgumentInputs.Arguments[i]
-		argType, _, argDependencies, err := c.rootDependencies(arg)
+		argResult, err := c.rootDependencies(arg)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, err
 		}
 		// Validate type compatibility with function's schema
 		paramType := paramTypes[i]
-		if err := paramType.ValidateCompatibility(argType); err != nil {
-			return nil, nil, nil, fmt.Errorf("error while validating arg/param type compatibility for function '%s' at 0-index %d (%w). Function schema: %s",
+		if err := paramType.ValidateCompatibility(argResult.resolvedType); err != nil {
+			return nil, fmt.Errorf("error while validating arg/param type compatibility for function '%s' at 0-index %d (%w). Function schema: %s",
 				functionSchema.ID(), i, err, functionSchema.String())
 		}
-		argTypes = append(argTypes, argType)
+		argTypes = append(argTypes, argResult.resolvedType)
 		// Add dependency to the path tree
-		dependencies = append(dependencies, argDependencies...)
+		dependencies = append(dependencies, argResult.completedPaths...)
 	}
 	// Now get the type from the function output
 	outputType, _, err := functionSchema.Output(argTypes)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("error while getting return type (%w)", err)
+		return nil, fmt.Errorf("error while getting return type (%w)", err)
 	}
-	return outputType, nil, dependencies, nil
+	// Create the chainable path and root dependency node for the function
+	functionRootPath := &PathTree{
+		PathItem: node.FuncIdentifier.IdentifierName,
+		NodeType: FunctionNode,
+		Subtrees: nil,
+	}
+	return &dependencyResult{
+		resolvedType:   outputType,
+		chainablePath:  functionRootPath,
+		rootPathResult: functionRootPath,
+		completedPaths: dependencies,
+	}, nil
 }
 
 // dotNotationDependencies resolves dependencies of a DotNotation node.
 //
 // The dot notation is when item.item is encountered. We simply traverse the AST in order, left to right,
 // nothing specific to do.
-// While this is technically a binary operation, this is a special, non-mathematical case of it.
 func (c *dependencyContext) dotNotationDependencies(
 	node *ast.DotNotation,
 	currentType schema.Type,
 	path *PathTree,
-) (schema.Type, *PathTree, []*PathTree, error) {
+) (*dependencyResult, error) {
 	// Theoretical scenario, the left is a function call. It's dependencies are all that matter.
 	// Alternative scenario, the left is an instance of access to the main data structure. In this case, it is its
 	// own dependency.
 	// Start with the left access.
-	leftType, leftChainablePath, leftDependencies, err := c.dependencies(node.LeftAccessibleNode, currentType, path)
+	leftResult, err := c.dependencies(node.LeftAccessibleNode, currentType, path)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 	// Right dependencies, using left type.
-	rightType, rightChainablePath, rightDependencies, err := c.dependencies(node.RightAccessIdentifier, leftType, leftChainablePath)
+	rightResult, err := c.dependencies(node.RightAccessIdentifier, leftResult.resolvedType, leftResult.chainablePath)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
-	// If the left isn't chainable, we use include its dependencies.
-	finalDependencies := append(rightDependencies, leftDependencies...)
-	return rightType, rightChainablePath, finalDependencies, nil
+	finalDependencies := append(rightResult.completedPaths, leftResult.completedPaths...)
+	return &dependencyResult{
+		resolvedType:   rightResult.resolvedType,
+		chainablePath:  rightResult.chainablePath,
+		rootPathResult: leftResult.rootPathResult,
+		completedPaths: finalDependencies,
+	}, nil
 }
 
-// bracketAccessorDependencies resolves dependencies for a BracketAccessor node,
-// resolving the left type, as well as the value in the brackets, to find the result.
+// bracketAccessorDependencies resolves dependencies for a BracketAccessor node, which is
+// when item[item] is encountered.
 func (c *dependencyContext) bracketAccessorDependencies(
 	node *ast.BracketAccessor,
 	currentType schema.Type,
 	path *PathTree,
-) (schema.Type, *PathTree, []*PathTree, error) {
-	// A bracket accessor is when an item[item] is encountered. Here we need to evaluate the left tree as usual, then
-	// use the right tree according to its type. This is either a literal (e.g. a string), or it is a subexpression.
-	// Literals will call dependenciesMapKey, while subexpressions need to be evaluated on their own on the root
-	// type.
-	leftType, leftPath, leftDependencies, err := c.dependencies(node.LeftNode, currentType, path)
+) (*dependencyResult, error) {
+	// Start with the part before the []
+	leftResult, err := c.dependencies(node.LeftNode, currentType, path)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 
-	// Evaluate the subexpression
-	keyType, _, keyDependencies, err := c.rootDependencies(node.RightExpression)
+	// Evaluate the subexpression, the part in the brackets []
+	keyResult, err := c.rootDependencies(node.RightExpression)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
-	mergedDependencies := append(leftDependencies, keyDependencies...)
-	var typeResult schema.Type
-	var chainablePath *PathTree
-	var currentDependencies []*PathTree
-	switch leftType.TypeID() {
+	mergedDependencies := append(leftResult.completedPaths, keyResult.completedPaths...)
+	var overallResult *dependencyResult
+	switch leftResult.resolvedType.TypeID() {
 	case schema.TypeIDMap:
-		typeResult, chainablePath, currentDependencies, err = c.bracketSubExprMapDependencies(keyType, leftType, leftPath)
+		overallResult, err = c.bracketMapDependencies(leftResult, keyResult.resolvedType)
 	case schema.TypeIDList:
-		typeResult, chainablePath, currentDependencies, err = c.bracketListDependencies(keyType, leftType, leftPath)
+		overallResult, err = c.bracketListDependencies(leftResult, keyResult.resolvedType)
 	case schema.TypeIDAny:
-		typeResult, chainablePath, currentDependencies, err = schema.NewAnySchema(), leftPath, []*PathTree{}, nil
+		overallResult, err = &dependencyResult{
+			resolvedType:   schema.NewAnySchema(),
+			chainablePath:  leftResult.chainablePath,
+			rootPathResult: leftResult.rootPathResult,
+		}, nil
+	case schema.TypeIDScope, schema.TypeIDObject, schema.TypeIDRef:
+		// This is supported in JavaScript, but not this expression language. This is because objects have
+		// different types for each field, meaning that the type cannot be determined at this point.
+		return nil, fmt.Errorf(
+			"bracket ([]) access is not supported for object/scope/ref types; please use dot notation",
+		)
 	default:
-		// We don't support subexpressions to pick a property on an object type since that would result in
-		// unpredictable behavior and runtime errors. Furthermore, we would not be able to perform type
-		// evaluation.
-		return nil, nil, nil, fmt.Errorf("subexpressions are only supported on map, list, and any types, %s given", currentType.TypeID())
+		return nil, fmt.Errorf(
+			"bracket ([]) subexpressions are only supported on 'map', 'list', and 'any' types; %s given",
+			currentType.TypeID(),
+		)
 	}
-	// For literals, add extraneous data.
-	chainablePath = c.addExtraneous(node.RightExpression, chainablePath)
-	mergedDependencies = append(mergedDependencies, currentDependencies...)
-	return typeResult, chainablePath, mergedDependencies, err
+	// For literals, add key data.
+	overallResult.chainablePath = c.addKeyNode(node.RightExpression, overallResult.chainablePath)
+	overallResult.addCompletedDependencies(mergedDependencies)
+	return overallResult, err
 }
 
-// bracketSubExprMapDependencies is used to resolve dependencies when a bracket accessor has a subexpression,
+// bracketMapDependencies is used to resolve dependencies when a bracket accessor has a subexpression,
 // with the left type being a map. So format `map[sub-expression]`
-func (c *dependencyContext) bracketSubExprMapDependencies(
+func (c *dependencyContext) bracketMapDependencies(
+	leftResult *dependencyResult,
 	keyType schema.Type,
-	leftType schema.Type,
-	leftPath *PathTree,
-) (schema.Type, *PathTree, []*PathTree, error) {
+) (*dependencyResult, error) {
 	// For maps, we try to compare the type of the map key with the resulting type of the subexpression to
 	// make sure that there are no runtime type failures. The user may need to add type conversion functions
 	// to their expressions to convert an integer to a string, for example.
-	mapType := leftType.(schema.UntypedMap)
+	mapType := leftResult.resolvedType.(schema.UntypedMap)
 	if keyType.TypeID() != mapType.Keys().TypeID() {
-		return nil, nil, nil, fmt.Errorf("subexpression evaluates to type '%s' for a map, '%s' expected", keyType.TypeID(), mapType.Keys().TypeID())
+		return nil, fmt.Errorf("subexpression evaluates to type '%s' for a map, '%s' expected", keyType.TypeID(), mapType.Keys().TypeID())
 	}
-	return mapType.Values(), leftPath, []*PathTree{}, nil
+	return &dependencyResult{
+		resolvedType:   mapType.Values(),
+		chainablePath:  leftResult.chainablePath,
+		rootPathResult: leftResult.rootPathResult,
+	}, nil
 }
 
 // bracketListDependencies is used to resolve dependencies when a bracket accessor has a subexpression,
 // with the left type being a list.
 func (c *dependencyContext) bracketListDependencies(
+	leftResult *dependencyResult,
 	keyType schema.Type,
-	leftType schema.Type,
-	path *PathTree,
-) (schema.Type, *PathTree, []*PathTree, error) {
-	// Lists have integer indexes, so we try to make sure that the subexpression is yielding an int or
-	// int-like type. This will have the best chance of not resulting in a runtime error.
-	list := leftType.(schema.UntypedList)
-	switch keyType.TypeID() {
-	case schema.TypeIDInt:
-	default:
-		return nil, nil, nil, fmt.Errorf("subexpressions resulted in a %s type for a list key, integer expected", keyType.TypeID())
+) (*dependencyResult, error) {
+	// Lists have integer indexes, so make sure that the subexpression is yielding an int.
+	list := leftResult.resolvedType.(schema.UntypedList)
+	if keyType.TypeID() != schema.TypeIDInt {
+		return nil, fmt.Errorf("subexpressions resulted in a %s type for a list key, integer expected", keyType.TypeID())
 	}
-	return list.Items(), path, []*PathTree{}, nil
+	return &dependencyResult{
+		resolvedType:   list.Items(), // The type is the type for an individual item of the list.
+		chainablePath:  leftResult.chainablePath,
+		rootPathResult: leftResult.rootPathResult,
+	}, nil
 }
 
-func (c *dependencyContext) addExtraneous(node ast.Node, path *PathTree) *PathTree {
-	// If literal, include that in the extraneous info, only if path present.
-	if path != nil { // Do this check first, to skip the literal check when possible.
-		if literalValue, isLiteral := node.(ast.ValueLiteral); isLiteral {
-			pathItem := &PathTree{
-				PathItem:     literalValue.Value(),
-				IsExtraneous: true,
-				Subtrees:     nil,
-			}
-			if path != nil {
-				path.Subtrees = append(path.Subtrees, pathItem)
-			}
-			return pathItem
-		}
+// If the key is literal, include the value in a key-type node.
+// This extends the chainable path.
+func (c *dependencyContext) addKeyNode(node ast.Node, path *PathTree) *PathTree {
+	literalValue, isLiteral := node.(ast.ValueLiteral)
+	if !isLiteral {
+		return path
 	}
-	return path
+	pathItem := &PathTree{
+		PathItem: literalValue.Value(),
+		NodeType: KeyNode,
+		Subtrees: nil,
+	}
+	path.Subtrees = append(path.Subtrees, pathItem)
+	return pathItem
 }
 
 func (c *dependencyContext) identifierDependencies(
 	node *ast.Identifier,
 	currentType schema.Type,
 	path *PathTree,
-) (schema.Type, *PathTree, []*PathTree, error) {
+) (*dependencyResult, error) {
 	switch node.IdentifierName {
 	case "$":
-		// This identifier means the root of the expression.
-		// Validate that the given path is actually at the root.
-		if path.PathItem != "$" {
-			return nil, nil, nil, fmt.Errorf("root access chained after non-root")
+		var root *PathTree
+		// If the given node is root, use it. If nil, create it.
+		if path == nil {
+			root = &PathTree{
+				PathItem: "$",
+				NodeType: DataRootNode,
+				Subtrees: nil,
+			}
+		} else if path.NodeType == DataRootNode {
+			root = path
+		} else {
+			return nil, fmt.Errorf("root access %q of type %q not at root", path.PathItem, path.NodeType)
 		}
-		return c.rootType, path, []*PathTree{}, nil
+		// The path is validated as the root already.
+		return &dependencyResult{
+			resolvedType:   c.rootType,
+			chainablePath:  path,
+			rootPathResult: root,
+		}, nil
 	default:
 		// This case is the item.item type expression, where the right item is the "identifier" in question.
 		return dependenciesAccessObject(currentType, node.IdentifierName, path)
 	}
 }
 
-// dependenciesAccessKnownKey this function reads the object on the left to determine
+// dependenciesAccessObject reads the object on the left to determine
 // the type of the property referenced.
 func dependenciesAccessObject(
 	leftType schema.Type,
 	identifier string,
 	path *PathTree,
-) (schema.Type, *PathTree, []*PathTree, error) {
+) (*dependencyResult, error) {
 	switch leftType.TypeID() {
 	case schema.TypeIDScope, schema.TypeIDRef, schema.TypeIDObject:
-		// Object-likes always have field names (strings) as keys, so we need to convert the passed value to a string.
-		// 99% of the time these are going to be strings anyway.
 		currentObject := leftType.(schema.Object)
 		properties := currentObject.Properties()
 		property, ok := properties[identifier]
 		if !ok {
-			return nil, nil, nil, fmt.Errorf("object %s does not have a property named %q", currentObject.ID(), identifier)
+			return nil, fmt.Errorf("object %s does not have a property named %q", currentObject.ID(), identifier)
 		}
 		pathItem := &PathTree{
-			PathItem:     identifier,
-			IsExtraneous: false,
-			Subtrees:     nil,
+			PathItem: identifier,
+			NodeType: AccessNode,
+			Subtrees: nil,
 		}
-		if path != nil {
-			path.Subtrees = append(path.Subtrees, pathItem)
-		}
-		return property.Type(), pathItem, []*PathTree{}, nil
+		path.Subtrees = append(path.Subtrees, pathItem)
+		return &dependencyResult{
+			resolvedType:  property.Type(),
+			chainablePath: pathItem,
+			// In case the root isn't explicitly set with '$.', set the root to the current path.
+			rootPathResult: path,
+		}, nil
 	case schema.TypeIDAny:
-		// We're accessing an unvalidated field, because the type is 'any.
-		// So mark the subtree as extraneous.
+		// Since the left type is any (a terminal type), this access (deeper than the 'any' node) is past-terminal.
 		pathItem := &PathTree{
-			PathItem:     identifier,
-			IsExtraneous: true,
-			Subtrees:     nil,
+			PathItem: identifier,
+			NodeType: PastTerminalNode,
+			Subtrees: nil,
 		}
-		if path != nil {
-			path.Subtrees = append(path.Subtrees, pathItem)
-		}
-		return schema.NewAnySchema(), pathItem, []*PathTree{}, nil
+		path.Subtrees = append(path.Subtrees, pathItem)
+		return &dependencyResult{
+			resolvedType:  schema.NewAnySchema(),
+			chainablePath: pathItem,
+		}, nil
 	default:
-		return nil, nil, nil,
-			fmt.Errorf("cannot evaluate expression identifier %s on data type %s", identifier, leftType.TypeID())
+		return nil, fmt.Errorf("cannot evaluate expression identifier %s on data type %s", identifier, leftType.TypeID())
 	}
 }

@@ -30,12 +30,17 @@ func ExampleExpression_Dependencies() {
 	if err != nil {
 		panic(err)
 	}
-
+	unpackRequirements := expressions.UnpackRequirements{
+		ExcludeDataRootPaths:     false,
+		ExcludeFunctionRootPaths: true,
+		StopAtTerminals:          false,
+		IncludeKeys:              false,
+	}
 	dependencyList, err := expr.Dependencies(
 		myScope,
 		nil,
 		nil,
-		false,
+		unpackRequirements,
 	)
 	if err != nil {
 		panic(err)
