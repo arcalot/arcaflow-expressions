@@ -68,7 +68,7 @@ func (p PathTree) Unpack(requirements UnpackRequirements) []Path {
 			result = append(result, currentPathNodes)
 		}
 	}
-	
+
 	// An empty result happens when either there are zero subtrees, or the
 	// subtrees are excluded based on the current requirements.
 	// Return the current path if the current path node should be an included
