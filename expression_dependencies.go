@@ -109,7 +109,7 @@ func (c *dependencyContext) binaryOperationDependencies(
 				leftResult.resolvedType.TypeID(), rightResult.resolvedType.TypeID(), node.Operation.String())
 	}
 	// Combine the left and right dependencies.
-	finalDependencies := append(rightResult.completedPaths, rightResult.completedPaths...)
+	finalDependencies := append(leftResult.completedPaths, rightResult.completedPaths...)
 
 	// Validate valid operations with the type, and the return type for the combination. Then return.
 	switch node.Operation {
@@ -124,14 +124,14 @@ func (c *dependencyContext) binaryOperationDependencies(
 			}, nil
 		default:
 			return nil,
-				fmt.Errorf("attempted mathematical operation %s on unsupported or incompatible type %s",
+				fmt.Errorf("attempted mathematical operation %q on unsupported or incompatible type %q",
 					node.Operation.String(), leftResult.resolvedType.TypeID())
 		}
 	case ast.And, ast.Or:
 		// Boolean operations. Bool in and out.
 		if leftResult.resolvedType.TypeID() != schema.TypeIDBool {
 			return nil,
-				fmt.Errorf("attempted boolean operation %s on non-boolean type %s",
+				fmt.Errorf("attempted boolean operation %q on non-boolean type %q",
 					node.Operation.String(), leftResult.resolvedType.TypeID())
 		}
 		// Fallthrough because and/or has the same result as the other bool resultant comparisons, but with
