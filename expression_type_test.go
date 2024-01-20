@@ -312,7 +312,7 @@ func TestTypeResolution_TestMixedOperations(t *testing.T) {
 	assert.NoError(t, err)
 	funcMap := map[string]schema.Function{"giveFloat": intInFunc}
 
-	expr, err := expressions.New("1.0 == (5.0 / giveFloat()) && true")
+	expr, err := expressions.New("1.0 == (5.0 / giveFloat()) && !true")
 	assert.NoError(t, err)
 	typeResult, err := expr.Type(testScope, funcMap, nil)
 	assert.NoError(t, err)

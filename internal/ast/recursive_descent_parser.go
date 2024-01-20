@@ -8,7 +8,20 @@ import (
 
 /*
 Current grammar:
-root_expression ::= root_identifier [expression_access] | literal | function_call | binary_operation
+root_expression ::= or_expression
+or_expression ::= and_expression [ "|" "|" and_expression ]
+and_expression ::= not_expression [ "&" "&" unary_expression ]
+not_expression ::= "[!"] comparison_expression
+comparison_expression ::= addition_subtraction_expression [ comparison_operator addition_subtraction_expression ]
+comparison_operator ::= ">" | "<" | ">" "=" | "<" "=" | "=" "=" | "!" "="
+addition_subtraction_expression ::= multiplication_division_expression [ addition_subtraction_operator multiplication_division_expression]
+addition_subtraction_operator ::=  "+" | "-"
+multiplication_division_expression ::= exponents_expression [ multiplication_division_operator exponents_expression ]
+multiplication_division_operator ::=  "*" | "/" | "%"
+exponents_expression ::= parentheses_expression [ "^" parentheses_expression ]
+parentheses_expression ::= negation_expression | "(" root_expression ")"
+negation_expression ::= ["-"] comparison_expression
+value_or_access_expression ::= root_identifier [expression_access] | literal | function_call
 chained_expression := identifier [expression_access]
 expression_access ::= map_access | dot_notation
 map_access ::= "[" key "]" [chained_expression]
@@ -17,7 +30,6 @@ root_identifier ::= identifier | "$"
 literal := IntLiteralToken | StringLiteralToken
 function_call := identifier "(" [argument_list] ")"
 argument_list := argument_list "," root_expression | root_expression
-binary_operator := ">" | "<" | ">" "=" | "<" "=" | "=" "=" | "!" "=" | "+" | "-" | "*" | "/"
 binary_operation := root_expression binary_operator root_expression
 
 filtering/querying will be added later if needed.
@@ -273,6 +285,8 @@ func (p *Parser) parseMathOperator() (MathOperationType, error) {
 				return GreaterThan, nil
 			case LessThanToken:
 				return LessThan, nil
+			case NotToken:
+				return Not, nil
 			default:
 				// Not equal or double equals
 				return Invalid, &InvalidGrammarError{FoundToken: p.currentToken, ExpectedTokens: []TokenID{EqualsToken}}
@@ -379,7 +393,7 @@ func (p *Parser) parseConditionalAnd() (Node, error) {
 }
 
 func (p *Parser) parseConditionalNot() (Node, error) {
-	return p.parseLeftUnaryExpression([]TokenID{NegationToken}, p.parseComparisonExpression)
+	return p.parseLeftUnaryExpression([]TokenID{NotToken}, p.parseComparisonExpression)
 }
 
 func (p *Parser) parseComparisonExpression() (Node, error) {

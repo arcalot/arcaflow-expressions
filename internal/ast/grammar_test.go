@@ -927,16 +927,16 @@ func TestExpression_AndLogic(t *testing.T) {
 }
 
 func TestExpression_AllTypes(t *testing.T) {
-	expression := "2 * 3 + 4 > 2 || $.test && true"
+	expression := "2 * 3 + 4 > 2 || $.test && !true"
 
-	// true && false as tree
+	// "2 * 3 + 4 > 2 || $.test && !true"
 	//               ||
 	//            /      \
 	//          >          &&
 	//        /  \       /    \
-	//       +    2   $.test  true
-	//     /   \
-	//    *     4
+	//       +    2   $.test   !
+	//     /   \               |
+	//    *     4             true
 	//   / \
 	//  2   3
 	twoTimesThree := &BinaryOperation{}
@@ -951,10 +951,13 @@ func TestExpression_AllTypes(t *testing.T) {
 	greaterThanTwo.Operation = GreaterThan
 	greaterThanTwo.LeftNode = oneTimesThreePlusFour
 	greaterThanTwo.RightNode = &IntLiteral{IntValue: 2}
+	notNode := &UnaryOperation{}
+	notNode.LeftOperation = Not
+	notNode.RightNode = &BooleanLiteral{BooleanValue: true}
 	rightNode := &BinaryOperation{}
 	rightNode.Operation = And
 	rightNode.LeftNode = &Identifier{IdentifierName: "$.test"}
-	rightNode.RightNode = &BooleanLiteral{BooleanValue: true}
+	rightNode.RightNode = notNode
 	root := &BinaryOperation{}
 	root.Operation = Or
 	root.LeftNode = greaterThanTwo

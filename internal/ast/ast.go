@@ -240,6 +240,7 @@ const (
 	LessThanEquals
 	And
 	Or
+	Not
 )
 
 func (e MathOperationType) String() string {
@@ -272,6 +273,8 @@ func (e MathOperationType) String() string {
 		return "&&"
 	case Or:
 		return "||"
+	case Not:
+		return "!"
 	default:
 		return "ENTRY MISSING"
 	}

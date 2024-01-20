@@ -713,6 +713,38 @@ var testData = map[string]struct {
 		false,
 		int64(10),
 	},
+	"simple-not-true": {
+		nil,
+		nil,
+		`!true`,
+		false,
+		false,
+		false,
+	},
+	"simple-not-false": {
+		nil,
+		nil,
+		`!false`,
+		false,
+		false,
+		true,
+	},
+	"invalid-type-not": {
+		nil,
+		nil,
+		`!5`,
+		false,
+		true,
+		nil,
+	},
+	"mixed-not": {
+		nil,
+		nil,
+		`!(5 != 5) && !false`,
+		false,
+		false,
+		true,
+	},
 }
 
 func TestEvaluate(t *testing.T) {

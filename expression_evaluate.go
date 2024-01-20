@@ -174,16 +174,23 @@ func (c evaluateContext) evaluateUnaryOperation(node *ast.UnaryOperation, data a
 		return nil, err
 	}
 	// Currently we only support negation with unary operators
-	if node.LeftOperation != ast.Subtract {
+	if node.LeftOperation == ast.Subtract {
+		switch right := rightEval.(type) {
+		case int64:
+			return right * -1, nil
+		case float64:
+			return right * -1.0, nil
+		default:
+			return nil, fmt.Errorf("unsupported type to perform negation unary operation on: %T. Expected '-'", right)
+		}
+	} else if node.LeftOperation == ast.Not {
+		booleanResult, isBool := rightEval.(bool)
+		if !isBool {
+			return nil, fmt.Errorf("unsupported type to perform not unary operation on: %T. Expected '!'", rightEval)
+		}
+		return !booleanResult, nil
+	} else {
 		return nil, fmt.Errorf("only negation is supported with unary evaluation at the moment. Got '%s'", node.LeftOperation)
-	}
-	switch left := rightEval.(type) {
-	case int64:
-		return left * -1, nil
-	case float64:
-		return left * -1.0, nil
-	default:
-		return nil, fmt.Errorf("unsupported type to perform unary operation on: %T", left)
 	}
 }
 
