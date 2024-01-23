@@ -318,3 +318,38 @@ func TestTypeResolution_TestMixedOperations(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equals[schema.Type](t, typeResult, schema.NewBoolSchema())
 }
+
+func TestDependencyResolution_Error_TestInvalidTypeOnBoolean(t *testing.T) {
+	// Size comparing booleans is not allowed
+	expr, err := expressions.New("true > false")
+	assert.NoError(t, err)
+	_, err = expr.Type(testScope, nil, nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "attempted size comparison")
+}
+
+func TestDependencyResolution_TestSizeComparison(t *testing.T) {
+	expr, err := expressions.New("5 > 6")
+	assert.NoError(t, err)
+	typeResult, err := expr.Type(testScope, nil, nil)
+	assert.NoError(t, err)
+	assert.Equals[schema.Type](t, typeResult, schema.NewBoolSchema())
+}
+
+func TestDependencyResolution_Error_TestInvalidNot(t *testing.T) {
+	// 'not' expects boolean
+	expr, err := expressions.New("!5")
+	assert.NoError(t, err)
+	_, err = expr.Type(testScope, nil, nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "non-boolean type")
+}
+
+func TestDependencyResolution_Error_TestInvalidNegation(t *testing.T) {
+	// 'not' expects boolean
+	expr, err := expressions.New("-true")
+	assert.NoError(t, err)
+	_, err = expr.Type(testScope, nil, nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "non-numeric type")
+}

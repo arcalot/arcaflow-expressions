@@ -81,12 +81,43 @@ func (c *dependencyContext) dependencies(
 	case *ast.BinaryOperation:
 		return c.binaryOperationDependencies(n)
 	case *ast.UnaryOperation:
-		return c.dependencies(n.RightNode, currentType, path) // Unary operations don't change dependencies.
+		return c.unaryOperationDependencies(n)
 	case *ast.FunctionCall:
 		return c.functionDependencies(n)
 	default:
 		return nil, fmt.Errorf("unsupported AST node type: %T", n)
 	}
+}
+
+func (c *dependencyContext) unaryOperationDependencies(
+	node *ast.UnaryOperation,
+) (*dependencyResult, error) {
+	// Unary operations don't change dependencies, but the type must be validated.
+	innerResult, err := c.rootDependencies(node.RightNode)
+	if err != nil {
+		return nil, err
+	}
+	switch node.LeftOperation {
+	case ast.Subtract:
+		// Negation expects a numerical type
+		if innerResult.resolvedType.TypeID() != schema.TypeIDInt &&
+			innerResult.resolvedType.TypeID() != schema.TypeIDFloat {
+			return nil,
+				fmt.Errorf("attempted negation operation on non-numeric type %q",
+					innerResult.resolvedType.TypeID())
+		}
+	case ast.Not:
+		// 'not' expects a boolean input
+		if innerResult.resolvedType.TypeID() != schema.TypeIDBool {
+			return nil,
+				fmt.Errorf("attempted 'not' operation on non-boolean type %q",
+					innerResult.resolvedType.TypeID())
+		}
+	default:
+		return nil, fmt.Errorf("unsupported unary operation: %q", node.LeftOperation)
+	}
+	// Negation and 'not' do not change the type or dependencies.
+	return innerResult, nil
 }
 
 func (c *dependencyContext) binaryOperationDependencies(
@@ -101,8 +132,7 @@ func (c *dependencyContext) binaryOperationDependencies(
 	if err != nil {
 		return nil, err
 	}
-	// Validate same type. This is a requirement for binary operations.
-	// If that is not good for your use case, don't change this. Instead, use a type cast function.
+	// Validate same type. This is a hard requirement for binary operations. Use a cast function if this is a problem.
 	if leftResult.resolvedType.TypeID() != rightResult.resolvedType.TypeID() {
 		return nil,
 			fmt.Errorf("left (%s) and right (%s) types do not match in binary operation (%s)",
@@ -110,19 +140,15 @@ func (c *dependencyContext) binaryOperationDependencies(
 	}
 	// Combine the left and right dependencies.
 	finalDependencies := append(leftResult.completedPaths, rightResult.completedPaths...)
-
-	// Validate valid operations with the type, and the return type for the combination. Then return.
+	var resultType schema.Type
+	// Validate operations with the resolved type, and compute the return type for the combination.
 	switch node.Operation {
 	case ast.Add, ast.Subtract, ast.Multiply, ast.Divide, ast.Modulus, ast.Power:
 		// Math. Same as type going in. Plus validate that it's numeric.
-		switch leftResult.resolvedType.TypeID() {
-		case schema.TypeIDInt, schema.TypeIDFloat:
-			return &dependencyResult{
-				resolvedType:   leftResult.resolvedType,
-				rootPathResult: nil, // Cannot be chained. It's a primitive.
-				completedPaths: finalDependencies,
-			}, nil
-		default:
+		if leftResult.resolvedType.TypeID() == schema.TypeIDInt ||
+			leftResult.resolvedType.TypeID() == schema.TypeIDFloat {
+			resultType = leftResult.resolvedType
+		} else {
 			return nil,
 				fmt.Errorf("attempted mathematical operation %q on unsupported or incompatible type %q",
 					node.Operation.String(), leftResult.resolvedType.TypeID())
@@ -134,21 +160,28 @@ func (c *dependencyContext) binaryOperationDependencies(
 				fmt.Errorf("attempted boolean operation %q on non-boolean type %q",
 					node.Operation.String(), leftResult.resolvedType.TypeID())
 		}
-		// Fallthrough because and/or has the same result as the other bool resultant comparisons, but with
-		// the extra check
-		fallthrough
-	case ast.Equals, ast.NotEquals, ast.GreaterThan, ast.LessThan, ast.GreaterThanEquals, ast.LessThanEquals:
-		// Comparison. Any type in. Boolean out.
-		return &dependencyResult{
-			resolvedType:   schema.NewBoolSchema(),
-			rootPathResult: nil, // Cannot be chained. It's a primitive.
-			completedPaths: finalDependencies,
-		}, nil
+		resultType = schema.NewBoolSchema()
+	case ast.GreaterThan, ast.LessThan, ast.GreaterThanEquals, ast.LessThanEquals:
+		// Size comparison. Does not work with boolean types.
+		if leftResult.resolvedType.TypeID() == schema.TypeIDBool {
+			return nil,
+				fmt.Errorf("attempted size comparison operation %q on boolean type",
+					node.Operation.String())
+		}
+		resultType = schema.NewBoolSchema()
+	case ast.Equals, ast.NotEquals:
+		// Equality comparison. Any type in. Boolean out.
+		resultType = schema.NewBoolSchema()
 	case ast.Invalid:
 		return nil, fmt.Errorf("attempted to perform invalid operation (binary operation type invalid)")
 	default:
 		return nil, fmt.Errorf("bug: binary operation %s missing from dependency evaluation code", node.Operation)
 	}
+	return &dependencyResult{
+		resolvedType:   resultType,
+		rootPathResult: nil, // Cannot be chained. It's a primitive.
+		completedPaths: finalDependencies,
+	}, nil
 }
 
 func (c *dependencyContext) functionDependencies(node *ast.FunctionCall) (*dependencyResult, error) {

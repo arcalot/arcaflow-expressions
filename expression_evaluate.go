@@ -52,7 +52,7 @@ func evalNumericalOperation[T SupportedNumber](a, b T, op ast.MathOperationType)
 	var aAsAny any = a
 	switch op {
 	case ast.Invalid:
-		return nil, fmt.Errorf("attempted to perform invalid operation")
+		return nil, fmt.Errorf("invalid operation encoutered evaluating numerical operation; this is likely due to a bug in the parser")
 	case ast.Add:
 		return a + b, nil
 	case ast.Subtract:
@@ -86,13 +86,14 @@ func evalNumericalOperation[T SupportedNumber](a, b T, op ast.MathOperationType)
 	case ast.And, ast.Or:
 		return nil, fmt.Errorf("attempted logical operation %s on numeric input %T", op, a)
 	default:
-		return nil, fmt.Errorf("numeric eval missing case for logical operation %s", op)
+		panic(fmt.Errorf("numeric eval missing case for logical operation %s", op))
 	}
 }
+
 func evalBooleanOperation(a, b bool, op ast.MathOperationType) (any, error) {
 	switch op {
 	case ast.Invalid:
-		return nil, fmt.Errorf("attempted to perform invalid operation")
+		return nil, fmt.Errorf("invalid operation encoutered evaluating boolean operation; this is likely due to a bug in the parser")
 	case ast.Power, ast.Modulus, ast.Divide, ast.Multiply, ast.Subtract, ast.Add:
 		return nil, fmt.Errorf("attempted to perform math operation '%s' on boolean", op)
 	case ast.GreaterThan, ast.LessThan, ast.GreaterThanEquals, ast.LessThanEquals:
@@ -106,19 +107,19 @@ func evalBooleanOperation(a, b bool, op ast.MathOperationType) (any, error) {
 	case ast.Or:
 		return a || b, nil
 	default:
-		return nil, fmt.Errorf("numeric eval missing case for logical operation %s", op)
+		panic(fmt.Errorf("numeric eval missing case for logical operation %s", op))
 	}
 }
 
 func evalStringOperation(a, b string, op ast.MathOperationType) (any, error) {
 	switch op {
 	case ast.Invalid:
-		return nil, fmt.Errorf("attempted to perform invalid operation")
+		return nil, fmt.Errorf("invalid operation encoutered evaluating string operation; this is likely due to a bug in the parser")
 	case ast.Add:
 		// Concatenate
 		return a + b, nil
 	case ast.Subtract, ast.Multiply, ast.Divide, ast.Modulus, ast.Power:
-		return nil, fmt.Errorf("strings do not support operator '%s'", op)
+		return nil, fmt.Errorf("string operations do not support operator '%s'", op)
 	case ast.Equals:
 		return a == b, nil
 	case ast.NotEquals:
@@ -134,7 +135,7 @@ func evalStringOperation(a, b string, op ast.MathOperationType) (any, error) {
 	case ast.And, ast.Or:
 		return nil, fmt.Errorf("attempted logical operation %s on string input", op)
 	default:
-		return nil, fmt.Errorf("string eval missing case for logical operation %s", op)
+		panic(fmt.Errorf("string eval missing case for logical operation %s", op))
 	}
 }
 
@@ -181,16 +182,16 @@ func (c evaluateContext) evaluateUnaryOperation(node *ast.UnaryOperation, data a
 		case float64:
 			return right * -1.0, nil
 		default:
-			return nil, fmt.Errorf("unsupported type to perform negation unary operation on: %T. Expected '-'", right)
+			return nil, fmt.Errorf("unsupported type to perform negation unary operation on: %T; expected 64-bit int or float", right)
 		}
 	} else if node.LeftOperation == ast.Not {
 		booleanResult, isBool := rightEval.(bool)
 		if !isBool {
-			return nil, fmt.Errorf("unsupported type to perform not unary operation on: %T. Expected '!'", rightEval)
+			return nil, fmt.Errorf("unsupported type to perform boolean 'not' operation on: %T; expected boolean", rightEval)
 		}
 		return !booleanResult, nil
 	} else {
-		return nil, fmt.Errorf("only negation is supported with unary evaluation at the moment. Got '%s'", node.LeftOperation)
+		return nil, fmt.Errorf("only negation is supported with unary evaluation at the moment; got '%s'", node.LeftOperation)
 	}
 }
 
@@ -209,7 +210,7 @@ func (c evaluateContext) evaluateFuncCall(node *ast.FunctionCall) (any, error) {
 	gotArgs := len(evaluatedArgs)
 	if gotArgs != expectedArgs {
 		return nil, fmt.Errorf(
-			"function '%s' called with incorrect number of arguments. Expected %d, got %d",
+			"function '%s' called with incorrect number of arguments; expected %d, got %d",
 			funcID, expectedArgs, gotArgs)
 	}
 	return functionSchema.Call(evaluatedArgs)
