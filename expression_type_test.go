@@ -220,6 +220,19 @@ func TestTypeResolution_BinaryMathHomogeneousIntLiterals(t *testing.T) {
 	typeResult, err := expr.Type(nil, nil, nil)
 	assert.NoError(t, err)
 	assert.Equals[schema.Type](t, typeResult, schema.NewIntSchema(nil, nil, nil))
+	expr, err = expressions.New("5 * 5")
+	assert.NoError(t, err)
+	typeResult, err = expr.Type(nil, nil, nil)
+	assert.NoError(t, err)
+	assert.Equals[schema.Type](t, typeResult, schema.NewIntSchema(nil, nil, nil))
+}
+
+func TestTypeResolution_BinaryConcatenateStrings(t *testing.T) {
+	expr, err := expressions.New(`"5" + "5"`)
+	assert.NoError(t, err)
+	typeResult, err := expr.Type(nil, nil, nil)
+	assert.NoError(t, err)
+	assert.Equals[schema.Type](t, typeResult, schema.NewStringSchema(nil, nil, nil))
 }
 
 func TestTypeResolution_BinaryMathHomogeneousIntReference(t *testing.T) {
@@ -229,13 +242,43 @@ func TestTypeResolution_BinaryMathHomogeneousIntReference(t *testing.T) {
 	typeResult, err := expr.Type(testScope, nil, nil)
 	assert.NoError(t, err)
 	assert.Equals[schema.Type](t, typeResult, schema.NewIntSchema(nil, nil, nil))
+	expr, err = expressions.New("$.simple_int + 5")
+	assert.NoError(t, err)
+	typeResult, err = expr.Type(testScope, nil, nil)
+	assert.NoError(t, err)
+	assert.Equals[schema.Type](t, typeResult, schema.NewIntSchema(nil, nil, nil))
 }
 
 func TestTypeResolution_BinaryMathHomogeneousFloatLiterals(t *testing.T) {
-	// Two floats divided should give a float
+	// Two floats added, subtracted, multiplied, and divided should give floats
 	expr, err := expressions.New("5.0 / 5.0")
 	assert.NoError(t, err)
 	typeResult, err := expr.Type(nil, nil, nil)
+	assert.NoError(t, err)
+	assert.Equals[schema.Type](t, typeResult, schema.NewFloatSchema(nil, nil, nil))
+	expr, err = expressions.New("5.0 + 5.0")
+	assert.NoError(t, err)
+	typeResult, err = expr.Type(nil, nil, nil)
+	assert.NoError(t, err)
+	assert.Equals[schema.Type](t, typeResult, schema.NewFloatSchema(nil, nil, nil))
+	expr, err = expressions.New("5.0 - 5.0")
+	assert.NoError(t, err)
+	typeResult, err = expr.Type(nil, nil, nil)
+	assert.NoError(t, err)
+	assert.Equals[schema.Type](t, typeResult, schema.NewFloatSchema(nil, nil, nil))
+	expr, err = expressions.New("5.0 * 5.0")
+	assert.NoError(t, err)
+	typeResult, err = expr.Type(nil, nil, nil)
+	assert.NoError(t, err)
+	assert.Equals[schema.Type](t, typeResult, schema.NewFloatSchema(nil, nil, nil))
+	expr, err = expressions.New("5.0 % 5.0")
+	assert.NoError(t, err)
+	typeResult, err = expr.Type(nil, nil, nil)
+	assert.NoError(t, err)
+	assert.Equals[schema.Type](t, typeResult, schema.NewFloatSchema(nil, nil, nil))
+	expr, err = expressions.New("5.0 * 5.0")
+	assert.NoError(t, err)
+	typeResult, err = expr.Type(nil, nil, nil)
 	assert.NoError(t, err)
 	assert.Equals[schema.Type](t, typeResult, schema.NewFloatSchema(nil, nil, nil))
 }
@@ -280,14 +323,6 @@ func TestTypeResolution_TestMixedMathAndFunc(t *testing.T) {
 	assert.Equals[schema.Type](t, typeResult, schema.NewFloatSchema(nil, nil, nil))
 }
 
-func TestTypeResolution_Error_InvalidTypeString(t *testing.T) {
-	expr, err := expressions.New(`"6" + "5"`)
-	assert.NoError(t, err)
-	_, err = expr.Dependencies(testScope, nil, nil, fullDataRequirements)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), `attempted mathematical operation "+" on unsupported or incompatible type "string"`)
-}
-
 func TestTypeResolution_Error_NonBoolType(t *testing.T) {
 	// Non-bool type for operation that requires boolean types
 	expr, err := expressions.New(`0 && 1`)
@@ -325,7 +360,7 @@ func TestDependencyResolution_Error_TestInvalidTypeOnBoolean(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = expr.Type(testScope, nil, nil)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "attempted size comparison")
+	assert.Contains(t, err.Error(), "attempted quantity inequality comparison operation")
 }
 
 func TestDependencyResolution_TestSizeComparison(t *testing.T) {
@@ -352,4 +387,39 @@ func TestDependencyResolution_Error_TestInvalidNegation(t *testing.T) {
 	_, err = expr.Type(testScope, nil, nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "non-numeric type")
+}
+
+func TestDependencyResolution_Error_TestComparingScopes(t *testing.T) {
+	// scopes cannot be compared
+	expr, err := expressions.New("$ > $")
+	assert.NoError(t, err)
+	_, err = expr.Type(testScope, nil, nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "incompatible type")
+}
+
+func TestDependencyResolution_Error_TestAddingScopes(t *testing.T) {
+	// scopes cannot be added
+	expr, err := expressions.New("$ + $")
+	assert.NoError(t, err)
+	_, err = expr.Type(testScope, nil, nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "incompatible type")
+}
+
+func TestDependencyResolution_Error_TestAddingMaps(t *testing.T) {
+	// maps cannot be added
+	expr, err := expressions.New("$.faz + $.faz")
+	assert.NoError(t, err)
+	_, err = expr.Type(testScope, nil, nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "incompatible type")
+}
+func TestDependencyResolution_Error_TestAddingLists(t *testing.T) {
+	// lists cannot be added
+	expr, err := expressions.New("$.int_list + $.int_list")
+	assert.NoError(t, err)
+	_, err = expr.Type(testScope, nil, nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "incompatible type")
 }

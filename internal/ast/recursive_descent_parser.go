@@ -363,7 +363,7 @@ func (p *Parser) parseLeftUnaryExpression(supportedOperators []TokenID, childNod
 		if err != nil {
 			return nil, err
 		}
-		subNode, err := childNodeParser()
+		subNode, err := p.parseRootExpression()
 		if err != nil {
 			return nil, err
 		}

@@ -789,6 +789,63 @@ func TestExpression_UnaryNegative(t *testing.T) {
 	assert.Equals[Node](t, parsedResult, root)
 }
 
+func TestExpression_MultiNegationUnary(t *testing.T) {
+	expression := `---5`
+	level3 := &UnaryOperation{}
+	level3.LeftOperation = Subtract
+	level3.RightNode = &IntLiteral{IntValue: 5}
+	level2 := &UnaryOperation{}
+	level2.LeftOperation = Subtract
+	level2.RightNode = level3
+	root := &UnaryOperation{}
+	root.LeftOperation = Subtract
+	root.RightNode = level2
+	p, err := InitParser(expression, t.Name())
+	assert.NoError(t, err)
+	parsedResult, err := p.ParseExpression()
+	assert.NoError(t, err)
+	assert.NotNil(t, parsedResult)
+
+	assert.InstanceOf[*UnaryOperation](t, parsedResult)
+	assert.Equals[Node](t, parsedResult, root)
+}
+
+func TestExpression_MultiNegationUnaryParentheses(t *testing.T) {
+	expression := `-(-5)`
+	level2 := &UnaryOperation{}
+	level2.LeftOperation = Subtract
+	level2.RightNode = &IntLiteral{IntValue: 5}
+	root := &UnaryOperation{}
+	root.LeftOperation = Subtract
+	root.RightNode = level2
+	p, err := InitParser(expression, t.Name())
+	assert.NoError(t, err)
+	parsedResult, err := p.ParseExpression()
+	assert.NoError(t, err)
+	assert.NotNil(t, parsedResult)
+
+	assert.InstanceOf[*UnaryOperation](t, parsedResult)
+	assert.Equals[Node](t, parsedResult, root)
+}
+
+func TestExpression_MultiNotUnary(t *testing.T) {
+	expression := `!!true`
+	level2 := &UnaryOperation{}
+	level2.LeftOperation = Not
+	level2.RightNode = &BooleanLiteral{BooleanValue: true}
+	root := &UnaryOperation{}
+	root.LeftOperation = Not
+	root.RightNode = level2
+	p, err := InitParser(expression, t.Name())
+	assert.NoError(t, err)
+	parsedResult, err := p.ParseExpression()
+	assert.NoError(t, err)
+	assert.NotNil(t, parsedResult)
+
+	assert.InstanceOf[*UnaryOperation](t, parsedResult)
+	assert.Equals[Node](t, parsedResult, root)
+}
+
 // In the following two tests, we'll test a simple comparison, and a comparison that requires two.
 // We'll test all operators in the evaluation tests.
 

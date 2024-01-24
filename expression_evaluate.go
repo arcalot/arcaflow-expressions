@@ -36,9 +36,9 @@ func (c evaluateContext) evaluate(node ast.Node, data any) (any, error) {
 	case *ast.FunctionCall:
 		return c.evaluateFuncCall(n)
 	case *ast.BinaryOperation:
-		return c.evaluateBinaryOperation(n, data)
+		return c.evaluateBinaryOperation(n)
 	case *ast.UnaryOperation:
-		return c.evaluateUnaryOperation(n, data)
+		return c.evaluateUnaryOperation(n)
 	default:
 		return nil, fmt.Errorf("unsupported node type: %T", n)
 	}
@@ -51,8 +51,6 @@ type SupportedNumber interface {
 func evalNumericalOperation[T SupportedNumber](a, b T, op ast.MathOperationType) (any, error) {
 	var aAsAny any = a
 	switch op {
-	case ast.Invalid:
-		return nil, fmt.Errorf("invalid operation encoutered evaluating numerical operation; this is likely due to a bug in the parser")
 	case ast.Add:
 		return a + b, nil
 	case ast.Subtract:
@@ -85,6 +83,8 @@ func evalNumericalOperation[T SupportedNumber](a, b T, op ast.MathOperationType)
 		return a <= b, nil
 	case ast.And, ast.Or:
 		return nil, fmt.Errorf("attempted logical operation %s on numeric input %T", op, a)
+	case ast.Invalid:
+		return nil, fmt.Errorf("invalid operation encountered evaluating numerical operation; this is likely due to a bug in the parser")
 	default:
 		panic(fmt.Errorf("numeric eval missing case for logical operation %s", op))
 	}
@@ -92,12 +92,6 @@ func evalNumericalOperation[T SupportedNumber](a, b T, op ast.MathOperationType)
 
 func evalBooleanOperation(a, b bool, op ast.MathOperationType) (any, error) {
 	switch op {
-	case ast.Invalid:
-		return nil, fmt.Errorf("invalid operation encoutered evaluating boolean operation; this is likely due to a bug in the parser")
-	case ast.Power, ast.Modulus, ast.Divide, ast.Multiply, ast.Subtract, ast.Add:
-		return nil, fmt.Errorf("attempted to perform math operation '%s' on boolean", op)
-	case ast.GreaterThan, ast.LessThan, ast.GreaterThanEquals, ast.LessThanEquals:
-		return nil, fmt.Errorf("attempted to perform invalid operation '%s' on boolean", op)
 	case ast.Equals:
 		return a == b, nil
 	case ast.NotEquals:
@@ -106,20 +100,21 @@ func evalBooleanOperation(a, b bool, op ast.MathOperationType) (any, error) {
 		return a && b, nil
 	case ast.Or:
 		return a || b, nil
+	case ast.Power, ast.Modulus, ast.Divide, ast.Multiply, ast.Subtract, ast.Add,
+		ast.GreaterThan, ast.LessThan, ast.GreaterThanEquals, ast.LessThanEquals:
+		return nil, fmt.Errorf("attempted to perform invalid operation '%s' on boolean", op)
+	case ast.Invalid:
+		return nil, fmt.Errorf("invalid operation encountered evaluating boolean operation; this is likely due to a bug in the parser")
 	default:
-		panic(fmt.Errorf("numeric eval missing case for logical operation %s", op))
+		panic(fmt.Errorf("boolean eval missing case for logical operation %s", op))
 	}
 }
 
 func evalStringOperation(a, b string, op ast.MathOperationType) (any, error) {
 	switch op {
-	case ast.Invalid:
-		return nil, fmt.Errorf("invalid operation encoutered evaluating string operation; this is likely due to a bug in the parser")
 	case ast.Add:
 		// Concatenate
 		return a + b, nil
-	case ast.Subtract, ast.Multiply, ast.Divide, ast.Modulus, ast.Power:
-		return nil, fmt.Errorf("string operations do not support operator '%s'", op)
 	case ast.Equals:
 		return a == b, nil
 	case ast.NotEquals:
@@ -132,19 +127,21 @@ func evalStringOperation(a, b string, op ast.MathOperationType) (any, error) {
 		return a >= b, nil
 	case ast.LessThanEquals:
 		return a <= b, nil
-	case ast.And, ast.Or:
-		return nil, fmt.Errorf("attempted logical operation %s on string input", op)
+	case ast.Subtract, ast.Multiply, ast.Divide, ast.Modulus, ast.Power, ast.And, ast.Or:
+		return nil, fmt.Errorf("string operations do not support operator '%s'", op)
+	case ast.Invalid:
+		return nil, fmt.Errorf("invalid operation encountered evaluating string operation; this is likely due to a bug in the parser")
 	default:
 		panic(fmt.Errorf("string eval missing case for logical operation %s", op))
 	}
 }
 
-func (c evaluateContext) evaluateBinaryOperation(node *ast.BinaryOperation, data any) (any, error) {
-	leftEval, err := c.evaluate(node.Left(), data)
+func (c evaluateContext) evaluateBinaryOperation(node *ast.BinaryOperation) (any, error) {
+	leftEval, err := c.evaluate(node.Left(), c.rootData)
 	if err != nil {
 		return nil, err
 	}
-	rightEval, err := c.evaluate(node.Right(), data)
+	rightEval, err := c.evaluate(node.Right(), c.rootData)
 	if err != nil {
 		return nil, err
 	}
@@ -169,29 +166,28 @@ func (c evaluateContext) evaluateBinaryOperation(node *ast.BinaryOperation, data
 	}
 }
 
-func (c evaluateContext) evaluateUnaryOperation(node *ast.UnaryOperation, data any) (any, error) {
-	rightEval, err := c.evaluate(node.RightNode, data)
+func (c evaluateContext) evaluateUnaryOperation(node *ast.UnaryOperation) (any, error) {
+	rightEval, err := c.evaluate(node.RightNode, c.rootData)
 	if err != nil {
 		return nil, err
 	}
-	// Currently we only support negation with unary operators
 	if node.LeftOperation == ast.Subtract {
 		switch right := rightEval.(type) {
 		case int64:
-			return right * -1, nil
+			return -right, nil
 		case float64:
-			return right * -1.0, nil
+			return -right, nil
 		default:
-			return nil, fmt.Errorf("unsupported type to perform negation unary operation on: %T; expected 64-bit int or float", right)
+			return nil, fmt.Errorf("unsupported type for arithmetic negation: %T; expected 64-bit int or float", right)
 		}
 	} else if node.LeftOperation == ast.Not {
 		booleanResult, isBool := rightEval.(bool)
 		if !isBool {
-			return nil, fmt.Errorf("unsupported type to perform boolean 'not' operation on: %T; expected boolean", rightEval)
+			return nil, fmt.Errorf("unsupported type for boolean `not` negation: %T; expected boolean", rightEval)
 		}
 		return !booleanResult, nil
 	} else {
-		return nil, fmt.Errorf("only negation is supported with unary evaluation at the moment; got '%s'", node.LeftOperation)
+		return nil, fmt.Errorf("only arethmetic negation '-' and boolean `not` negation '!' are supported with unary evaluation at the moment; got '%s'", node.LeftOperation)
 	}
 }
 

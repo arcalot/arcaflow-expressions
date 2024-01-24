@@ -241,7 +241,7 @@ var testData = map[string]struct {
 		nil,
 	},
 	"error-incorrect-param-count": {
-		[]any{},
+		nil,
 		map[string]schema.CallableFunction{
 			"test": voidFunc,
 		},
@@ -341,7 +341,7 @@ var testData = map[string]struct {
 		false,
 		true,
 	},
-	"simple-int-greater-than": {
+	"simple-int-greater-than-false": {
 		nil,
 		nil,
 		`1 > 1`,
@@ -349,7 +349,15 @@ var testData = map[string]struct {
 		false,
 		false,
 	},
-	"simple-int-less-than": {
+	"simple-int-greater-than-true": {
+		nil,
+		nil,
+		`2 > 1`,
+		false,
+		false,
+		true,
+	},
+	"simple-int-less-than-false": {
 		nil,
 		nil,
 		`1 < 1`,
@@ -357,7 +365,15 @@ var testData = map[string]struct {
 		false,
 		false,
 	},
-	"simple-int-greater-than-equals": {
+	"simple-int-less-than-true": {
+		nil,
+		nil,
+		`0 < 1`,
+		false,
+		false,
+		true,
+	},
+	"simple-int-greater-than-equals-true": {
 		nil,
 		nil,
 		`1 >= 1`,
@@ -365,7 +381,15 @@ var testData = map[string]struct {
 		false,
 		true,
 	},
-	"simple-int-less-than-equals": {
+	"simple-int-greater-than-equals-false": {
+		nil,
+		nil,
+		`0 >= 1`,
+		false,
+		false,
+		false,
+	},
+	"simple-int-less-than-equals-true": {
 		nil,
 		nil,
 		`1 <= 1`,
@@ -373,7 +397,16 @@ var testData = map[string]struct {
 		false,
 		true,
 	},
-	// Careful. Floating point numbers aren't exact.
+	"simple-int-less-than-equals-false": {
+		nil,
+		nil,
+		`2 <= 1`,
+		false,
+		false,
+		false,
+	},
+	// Next, the floating point math.
+	// Floating point numbers aren't exact in some scenarios due to precision limitations.
 	"simple-float-addition": {
 		nil,
 		nil,
@@ -406,7 +439,6 @@ var testData = map[string]struct {
 		false,
 		1.0,
 	},
-	// This case has a special case in the code.
 	"simple-float-mod": {
 		nil,
 		nil,
@@ -455,7 +487,7 @@ var testData = map[string]struct {
 		false,
 		true,
 	},
-	"simple-float-greater-than": {
+	"simple-float-greater-than-false": {
 		nil,
 		nil,
 		`1.0 > 1.0`,
@@ -463,7 +495,15 @@ var testData = map[string]struct {
 		false,
 		false,
 	},
-	"simple-float-less-than": {
+	"simple-float-greater-than-true": {
+		nil,
+		nil,
+		`1.01 > 1.0`,
+		false,
+		false,
+		true,
+	},
+	"simple-float-less-than-false": {
 		nil,
 		nil,
 		`1.0 < 1.0`,
@@ -471,7 +511,15 @@ var testData = map[string]struct {
 		false,
 		false,
 	},
-	"simple-float-greater-than-equals": {
+	"simple-float-less-than-true": {
+		nil,
+		nil,
+		`1.0 < 1.01`,
+		false,
+		false,
+		true,
+	},
+	"simple-float-greater-than-equals-true": {
 		nil,
 		nil,
 		`1.0 >= 1.0`,
@@ -479,13 +527,29 @@ var testData = map[string]struct {
 		false,
 		true,
 	},
-	"simple-float-less-than-equals": {
+	"simple-float-greater-than-equals-false": {
+		nil,
+		nil,
+		`0.1 >= 1.0`,
+		false,
+		false,
+		false,
+	},
+	"simple-float-less-than-equals-true": {
 		nil,
 		nil,
 		`1.0 <= 1.0`,
 		false,
 		false,
 		true,
+	},
+	"simple-float-less-than-equals-false": {
+		nil,
+		nil,
+		`1.1 <= 1.0`,
+		false,
+		false,
+		false,
 	},
 	"simple-bool-equals-same": {
 		nil,
@@ -503,13 +567,21 @@ var testData = map[string]struct {
 		false,
 		false,
 	},
-	"simple-bool-not-equals": {
+	"simple-bool-not-equals-different": {
 		nil,
 		nil,
 		`false != true`,
 		false,
 		false,
 		true,
+	},
+	"simple-bool-not-equals-same": {
+		nil,
+		nil,
+		`false != false`,
+		false,
+		false,
+		false,
 	},
 	"simple-bool-and-1": {
 		nil,
@@ -523,6 +595,22 @@ var testData = map[string]struct {
 		nil,
 		nil,
 		`true && false`,
+		false,
+		false,
+		false,
+	},
+	"simple-bool-and-3": {
+		nil,
+		nil,
+		`false && true`,
+		false,
+		false,
+		false,
+	},
+	"simple-bool-and-4": {
+		nil,
+		nil,
+		`false && false`,
 		false,
 		false,
 		false,
@@ -542,6 +630,22 @@ var testData = map[string]struct {
 		false,
 		false,
 		false,
+	},
+	"simple-bool-or-3": {
+		nil,
+		nil,
+		`true || true`,
+		false,
+		false,
+		true,
+	},
+	"simple-bool-or-4": {
+		nil,
+		nil,
+		`false || true`,
+		false,
+		false,
+		true,
 	},
 	"simple-string-concatenation": {
 		nil,
@@ -583,7 +687,7 @@ var testData = map[string]struct {
 		false,
 		true,
 	},
-	"simple-string-greater": {
+	"simple-string-greater-false": {
 		nil,
 		nil,
 		`"a" > "b"`,
@@ -591,7 +695,15 @@ var testData = map[string]struct {
 		false,
 		false,
 	},
-	"simple-string-less": {
+	"simple-string-greater-true": {
+		nil,
+		nil,
+		`"b" > "a"`,
+		false,
+		false,
+		true,
+	},
+	"simple-string-less-true": {
 		nil,
 		nil,
 		`"a" < "b"`,
@@ -599,7 +711,15 @@ var testData = map[string]struct {
 		false,
 		true,
 	},
-	"simple-string-greater-than-equals": {
+	"simple-string-less-false": {
+		nil,
+		nil,
+		`"c" < "b"`,
+		false,
+		false,
+		false,
+	},
+	"simple-string-greater-than-equals-true": {
 		nil,
 		nil,
 		`"a" >= "a"`,
@@ -607,13 +727,29 @@ var testData = map[string]struct {
 		false,
 		true,
 	},
-	"simple-string-less-than-equals": {
+	"simple-string-greater-than-equals-false": {
+		nil,
+		nil,
+		`"a" >= "b"`,
+		false,
+		false,
+		false,
+	},
+	"simple-string-less-than-equals-true": {
 		nil,
 		nil,
 		`"a" <= "b"`,
 		false,
 		false,
 		true,
+	},
+	"simple-string-less-than-equals-false": {
+		nil,
+		nil,
+		`"c" <= "b"`,
+		false,
+		false,
+		false,
 	},
 	"error-number-and": {
 		nil,
@@ -685,6 +821,30 @@ var testData = map[string]struct {
 		nil,
 		nil,
 		`-5`,
+		false,
+		false,
+		int64(-5),
+	},
+	"double-int-negation": {
+		nil,
+		nil,
+		`--5`,
+		false,
+		false,
+		int64(5),
+	},
+	"double-parenthesized-int-negation": {
+		nil,
+		nil,
+		`-(-5)`,
+		false,
+		false,
+		int64(5),
+	},
+	"triple-parenthesized-int-negation": {
+		nil,
+		nil,
+		`--(-5)`,
 		false,
 		false,
 		int64(-5),

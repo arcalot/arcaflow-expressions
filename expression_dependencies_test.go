@@ -437,6 +437,13 @@ func TestDependencyResolution_MathHomogeneousReference(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equals(t, len(paths), 1)
 	assert.Equals(t, paths[0].String(), "$.simple_int")
+	// Swapped
+	expr, err = expressions.New("$.simple_int + 5")
+	assert.NoError(t, err)
+	paths, err = expr.Dependencies(testScope, nil, nil, fullDataRequirements)
+	assert.NoError(t, err)
+	assert.Equals(t, len(paths), 1)
+	assert.Equals(t, paths[0].String(), "$.simple_int")
 }
 
 func TestDependencyResolution_MathSameDependency(t *testing.T) {
@@ -519,7 +526,7 @@ func TestDependencyResolution_TestBooleanOperationReferences(t *testing.T) {
 }
 
 func TestDependencyResolution_TestMixedMathAndFunc(t *testing.T) {
-	// Test int and float math, mixed with cast function.
+	// Test indirect int and float math by casting the int to a float in a function.
 	intInFunc, err := schema.NewCallableFunction(
 		"intToFloat",
 		[]schema.Type{schema.NewIntSchema(nil, nil, nil)},

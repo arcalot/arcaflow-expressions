@@ -132,40 +132,56 @@ func (c *dependencyContext) binaryOperationDependencies(
 	if err != nil {
 		return nil, err
 	}
-	// Validate same type. This is a hard requirement for binary operations. Use a cast function if this is a problem.
+	// Validate that the two operands have the same type; this is currently a requirement for binary operations.
 	if leftResult.resolvedType.TypeID() != rightResult.resolvedType.TypeID() {
 		return nil,
 			fmt.Errorf("left (%s) and right (%s) types do not match in binary operation (%s)",
 				leftResult.resolvedType.TypeID(), rightResult.resolvedType.TypeID(), node.Operation.String())
+	}
+	inputType := leftResult.resolvedType.TypeID()
+	// Only literals and references are supported.
+	if inputType != schema.TypeIDInt && inputType != schema.TypeIDFloat &&
+		inputType != schema.TypeIDBool && inputType != schema.TypeIDString {
+		return nil,
+			fmt.Errorf("attempted binary operation %q on unsupported or incompatible type %q",
+				node.Operation.String(), inputType)
 	}
 	// Combine the left and right dependencies.
 	finalDependencies := append(leftResult.completedPaths, rightResult.completedPaths...)
 	var resultType schema.Type
 	// Validate operations with the resolved type, and compute the return type for the combination.
 	switch node.Operation {
-	case ast.Add, ast.Subtract, ast.Multiply, ast.Divide, ast.Modulus, ast.Power:
+	case ast.Add:
+		// Add or concatenate
+		if inputType == schema.TypeIDInt || inputType == schema.TypeIDFloat || inputType == schema.TypeIDString {
+			resultType = leftResult.resolvedType
+		} else {
+			return nil,
+				fmt.Errorf("attempted mathematical add/concatenate on unsupported or incompatible type %q",
+					inputType)
+		}
+	case ast.Subtract, ast.Multiply, ast.Divide, ast.Modulus, ast.Power:
 		// Math. Same as type going in. Plus validate that it's numeric.
-		if leftResult.resolvedType.TypeID() == schema.TypeIDInt ||
-			leftResult.resolvedType.TypeID() == schema.TypeIDFloat {
+		if inputType == schema.TypeIDInt || inputType == schema.TypeIDFloat {
 			resultType = leftResult.resolvedType
 		} else {
 			return nil,
 				fmt.Errorf("attempted mathematical operation %q on unsupported or incompatible type %q",
-					node.Operation.String(), leftResult.resolvedType.TypeID())
+					node.Operation.String(), inputType)
 		}
 	case ast.And, ast.Or:
 		// Boolean operations. Bool in and out.
-		if leftResult.resolvedType.TypeID() != schema.TypeIDBool {
+		if inputType != schema.TypeIDBool {
 			return nil,
 				fmt.Errorf("attempted boolean operation %q on non-boolean type %q",
-					node.Operation.String(), leftResult.resolvedType.TypeID())
+					node.Operation.String(), inputType)
 		}
 		resultType = schema.NewBoolSchema()
 	case ast.GreaterThan, ast.LessThan, ast.GreaterThanEquals, ast.LessThanEquals:
-		// Size comparison. Does not work with boolean types.
-		if leftResult.resolvedType.TypeID() == schema.TypeIDBool {
+		// Quantity inequality. Not supported on boolean inputs.
+		if inputType == schema.TypeIDBool {
 			return nil,
-				fmt.Errorf("attempted size comparison operation %q on boolean type",
+				fmt.Errorf("attempted quantity inequality comparison operation %q on boolean type",
 					node.Operation.String())
 		}
 		resultType = schema.NewBoolSchema()
@@ -175,7 +191,7 @@ func (c *dependencyContext) binaryOperationDependencies(
 	case ast.Invalid:
 		return nil, fmt.Errorf("attempted to perform invalid operation (binary operation type invalid)")
 	default:
-		return nil, fmt.Errorf("bug: binary operation %s missing from dependency evaluation code", node.Operation)
+		panic(fmt.Errorf("bug: binary operation %s missing from dependency evaluation code", node.Operation))
 	}
 	return &dependencyResult{
 		resolvedType:   resultType,
