@@ -49,7 +49,6 @@ type SupportedNumber interface {
 }
 
 func evalNumericalOperation[T SupportedNumber](a, b T, op ast.MathOperationType) (any, error) {
-	var aAsAny any = a
 	switch op {
 	case ast.Add:
 		return a + b, nil
@@ -60,31 +59,31 @@ func evalNumericalOperation[T SupportedNumber](a, b T, op ast.MathOperationType)
 	case ast.Divide:
 		return a / b, nil
 	case ast.Modulus:
-		switch typedA := aAsAny.(type) {
+		switch any(a).(type) {
 		case int64:
-			return typedA % int64(b), nil
+			return int64(a) % int64(b), nil
 		case float64:
 			return math.Mod(float64(a), float64(b)), nil
 		}
 		return nil, fmt.Errorf("unsupported type for modulus: %T", a)
 	case ast.Power:
 		return T(math.Pow(float64(a), float64(b))), nil
-	case ast.Equals:
+	case ast.EqualTo:
 		return a == b, nil
-	case ast.NotEquals:
+	case ast.NotEqualTo:
 		return a != b, nil
 	case ast.GreaterThan:
 		return a > b, nil
 	case ast.LessThan:
 		return a < b, nil
-	case ast.GreaterThanEquals:
+	case ast.GreaterThanEqualTo:
 		return a >= b, nil
-	case ast.LessThanEquals:
+	case ast.LessThanEqualTo:
 		return a <= b, nil
 	case ast.And, ast.Or:
 		return nil, fmt.Errorf("attempted logical operation %s on numeric input %T", op, a)
 	case ast.Invalid:
-		return nil, fmt.Errorf("invalid operation encountered evaluating numerical operation; this is likely due to a bug in the parser")
+		panic(fmt.Errorf("invalid operation encountered evaluating numerical operation; this is likely due to a bug in the parser"))
 	default:
 		panic(fmt.Errorf("numeric eval missing case for logical operation %s", op))
 	}
@@ -92,19 +91,19 @@ func evalNumericalOperation[T SupportedNumber](a, b T, op ast.MathOperationType)
 
 func evalBooleanOperation(a, b bool, op ast.MathOperationType) (any, error) {
 	switch op {
-	case ast.Equals:
+	case ast.EqualTo:
 		return a == b, nil
-	case ast.NotEquals:
+	case ast.NotEqualTo:
 		return a != b, nil
 	case ast.And:
 		return a && b, nil
 	case ast.Or:
 		return a || b, nil
 	case ast.Power, ast.Modulus, ast.Divide, ast.Multiply, ast.Subtract, ast.Add,
-		ast.GreaterThan, ast.LessThan, ast.GreaterThanEquals, ast.LessThanEquals:
+		ast.GreaterThan, ast.LessThan, ast.GreaterThanEqualTo, ast.LessThanEqualTo:
 		return nil, fmt.Errorf("attempted to perform invalid operation '%s' on boolean", op)
 	case ast.Invalid:
-		return nil, fmt.Errorf("invalid operation encountered evaluating boolean operation; this is likely due to a bug in the parser")
+		panic(fmt.Errorf("invalid operation encountered evaluating boolean operation; this is likely due to a bug in the parser"))
 	default:
 		panic(fmt.Errorf("boolean eval missing case for logical operation %s", op))
 	}
@@ -115,22 +114,22 @@ func evalStringOperation(a, b string, op ast.MathOperationType) (any, error) {
 	case ast.Add:
 		// Concatenate
 		return a + b, nil
-	case ast.Equals:
+	case ast.EqualTo:
 		return a == b, nil
-	case ast.NotEquals:
+	case ast.NotEqualTo:
 		return a != b, nil
 	case ast.GreaterThan:
 		return a > b, nil
 	case ast.LessThan:
 		return a < b, nil
-	case ast.GreaterThanEquals:
+	case ast.GreaterThanEqualTo:
 		return a >= b, nil
-	case ast.LessThanEquals:
+	case ast.LessThanEqualTo:
 		return a <= b, nil
 	case ast.Subtract, ast.Multiply, ast.Divide, ast.Modulus, ast.Power, ast.And, ast.Or:
 		return nil, fmt.Errorf("string operations do not support operator '%s'", op)
 	case ast.Invalid:
-		return nil, fmt.Errorf("invalid operation encountered evaluating string operation; this is likely due to a bug in the parser")
+		panic(fmt.Errorf("invalid operation encountered evaluating string operation; this is likely due to a bug in the parser"))
 	default:
 		panic(fmt.Errorf("string eval missing case for logical operation %s", op))
 	}
@@ -183,11 +182,11 @@ func (c evaluateContext) evaluateUnaryOperation(node *ast.UnaryOperation) (any, 
 	} else if node.LeftOperation == ast.Not {
 		booleanResult, isBool := rightEval.(bool)
 		if !isBool {
-			return nil, fmt.Errorf("unsupported type for boolean `not` negation: %T; expected boolean", rightEval)
+			return nil, fmt.Errorf("unsupported type for boolean complement: %T; expected boolean", rightEval)
 		}
 		return !booleanResult, nil
 	} else {
-		return nil, fmt.Errorf("only arethmetic negation '-' and boolean `not` negation '!' are supported with unary evaluation at the moment; got '%s'", node.LeftOperation)
+		return nil, fmt.Errorf("only unary operators '-' and '!' are currently supported; got '%s'", node.LeftOperation)
 	}
 }
 

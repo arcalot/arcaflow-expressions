@@ -276,7 +276,7 @@ func TestTypeResolution_BinaryMathHomogeneousFloatLiterals(t *testing.T) {
 	typeResult, err = expr.Type(nil, nil, nil)
 	assert.NoError(t, err)
 	assert.Equals[schema.Type](t, typeResult, schema.NewFloatSchema(nil, nil, nil))
-	expr, err = expressions.New("5.0 * 5.0")
+	expr, err = expressions.New("5.0 ^ 5.0")
 	assert.NoError(t, err)
 	typeResult, err = expr.Type(nil, nil, nil)
 	assert.NoError(t, err)
@@ -302,7 +302,7 @@ func TestTypeResolution_UnaryOperation(t *testing.T) {
 }
 
 func TestTypeResolution_TestMixedMathAndFunc(t *testing.T) {
-	// Test int and float math, mixed with cast function.
+	// Test int and float math, mixed with function.
 	intInFunc, err := schema.NewCallableFunction(
 		"intToFloat",
 		[]schema.Type{schema.NewIntSchema(nil, nil, nil)},
@@ -333,7 +333,7 @@ func TestTypeResolution_Error_NonBoolType(t *testing.T) {
 }
 
 func TestTypeResolution_TestMixedOperations(t *testing.T) {
-	// Test int and float math, mixed with cast function.
+	// Test int and float math, mixed with function.
 	intInFunc, err := schema.NewCallableFunction(
 		"giveFloat",
 		[]schema.Type{},
@@ -355,7 +355,7 @@ func TestTypeResolution_TestMixedOperations(t *testing.T) {
 }
 
 func TestDependencyResolution_Error_TestInvalidTypeOnBoolean(t *testing.T) {
-	// Size comparing booleans is not allowed
+	// Tests invalid type for relational operator
 	expr, err := expressions.New("true > false")
 	assert.NoError(t, err)
 	_, err = expr.Type(testScope, nil, nil)

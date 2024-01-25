@@ -566,10 +566,11 @@ func TestExpression_SimpleAdd(t *testing.T) {
 	expression := "2 + 2"
 
 	// 2 + 2 as tree
-	root := &BinaryOperation{}
-	root.Operation = Add
-	root.LeftNode = &IntLiteral{IntValue: 2}
-	root.RightNode = &IntLiteral{IntValue: 2}
+	root := &BinaryOperation{
+		LeftNode:  &IntLiteral{IntValue: 2},
+		RightNode: &IntLiteral{IntValue: 2},
+		Operation: Add,
+	}
 
 	// Create parser
 	p, err := InitParser(expression, t.Name())
@@ -595,14 +596,16 @@ func TestExpression_ThreeSub(t *testing.T) {
 	//   -   3
 	//  / \
 	// 1    2
-	level2 := &BinaryOperation{}
-	level2.Operation = Subtract
-	level2.LeftNode = &IntLiteral{IntValue: 1}
-	level2.RightNode = &IntLiteral{IntValue: 2}
-	root := &BinaryOperation{}
-	root.Operation = Subtract
-	root.LeftNode = level2
-	root.RightNode = &IntLiteral{IntValue: 3}
+	level2 := &BinaryOperation{
+		LeftNode:  &IntLiteral{IntValue: 1},
+		RightNode: &IntLiteral{IntValue: 2},
+		Operation: Subtract,
+	}
+	root := &BinaryOperation{
+		LeftNode:  level2,
+		RightNode: &IntLiteral{IntValue: 3},
+		Operation: Subtract,
+	}
 
 	// Create parser
 	p, err := InitParser(expression, t.Name())
@@ -630,18 +633,21 @@ func TestExpression_MixedAddMultiplicationDivision(t *testing.T) {
 	//   *   10
 	//  / \
 	// 50  6
-	level3 := &BinaryOperation{}
-	level3.Operation = Multiply
-	level3.LeftNode = &IntLiteral{IntValue: 50}
-	level3.RightNode = &IntLiteral{IntValue: 6}
-	level2 := &BinaryOperation{}
-	level2.Operation = Divide
-	level2.LeftNode = level3
-	level2.RightNode = &IntLiteral{IntValue: 10}
-	root := &BinaryOperation{}
-	root.Operation = Add
-	root.LeftNode = &IntLiteral{IntValue: 7}
-	root.RightNode = level2
+	level3 := &BinaryOperation{
+		LeftNode:  &IntLiteral{IntValue: 50},
+		RightNode: &IntLiteral{IntValue: 6},
+		Operation: Multiply,
+	}
+	level2 := &BinaryOperation{
+		LeftNode:  level3,
+		RightNode: &IntLiteral{IntValue: 10},
+		Operation: Divide,
+	}
+	root := &BinaryOperation{
+		LeftNode:  &IntLiteral{IntValue: 7},
+		RightNode: level2,
+		Operation: Add,
+	}
 
 	// Create parser
 	p, err := InitParser(expression, t.Name())
@@ -667,14 +673,16 @@ func TestExpression_Power(t *testing.T) {
 	//   ^   3
 	//  / \
 	// 1    4
-	level2 := &BinaryOperation{}
-	level2.Operation = Power
-	level2.LeftNode = &IntLiteral{IntValue: 1}
-	level2.RightNode = &IntLiteral{IntValue: 4}
-	root := &BinaryOperation{}
-	root.Operation = Multiply
-	root.LeftNode = level2
-	root.RightNode = &IntLiteral{IntValue: 3}
+	level2 := &BinaryOperation{
+		LeftNode:  &IntLiteral{IntValue: 1},
+		RightNode: &IntLiteral{IntValue: 4},
+		Operation: Power,
+	}
+	root := &BinaryOperation{
+		LeftNode:  level2,
+		RightNode: &IntLiteral{IntValue: 3},
+		Operation: Multiply,
+	}
 
 	// Create parser
 	p, err := InitParser(expression, t.Name())
@@ -699,15 +707,17 @@ func TestExpression_PowerParentheses(t *testing.T) {
 	//    / \
 	//   2   *
 	//      / \
-	//     3    4
-	level2 := &BinaryOperation{}
-	level2.Operation = Multiply
-	level2.LeftNode = &IntLiteral{IntValue: 4}
-	level2.RightNode = &IntLiteral{IntValue: 3}
-	root := &BinaryOperation{}
-	root.Operation = Power
-	root.LeftNode = &IntLiteral{IntValue: 2}
-	root.RightNode = level2
+	//     4    3
+	level2 := &BinaryOperation{
+		LeftNode:  &IntLiteral{IntValue: 4},
+		RightNode: &IntLiteral{IntValue: 3},
+		Operation: Multiply,
+	}
+	root := &BinaryOperation{
+		LeftNode:  &IntLiteral{IntValue: 2},
+		RightNode: level2,
+		Operation: Power,
+	}
 
 	// Create parser
 	p, err := InitParser(expression, t.Name())
@@ -727,20 +737,22 @@ func TestExpression_PowerParentheses(t *testing.T) {
 func TestExpression_Parentheses(t *testing.T) {
 	expression := "(4 + 3) * 2"
 
-	// 1 ^ 4 * 3 as tree
+	// (4 + 3) * 2 as tree
 	//     *
 	//    / \
 	//   +   2
 	//  / \
 	// 4    3
-	level2 := &BinaryOperation{}
-	level2.Operation = Add
-	level2.LeftNode = &IntLiteral{IntValue: 4}
-	level2.RightNode = &IntLiteral{IntValue: 3}
-	root := &BinaryOperation{}
-	root.Operation = Multiply
-	root.LeftNode = level2
-	root.RightNode = &IntLiteral{IntValue: 2}
+	level2 := &BinaryOperation{
+		LeftNode:  &IntLiteral{IntValue: 4},
+		RightNode: &IntLiteral{IntValue: 3},
+		Operation: Add,
+	}
+	root := &BinaryOperation{
+		LeftNode:  level2,
+		RightNode: &IntLiteral{IntValue: 2},
+		Operation: Multiply,
+	}
 
 	// Create parser
 	p, err := InitParser(expression, t.Name())
@@ -766,13 +778,15 @@ func TestExpression_UnaryNegative(t *testing.T) {
 	//   5   -
 	//       |
 	//       5
-	level2 := &UnaryOperation{}
-	level2.LeftOperation = Subtract
-	level2.RightNode = &IntLiteral{IntValue: 5}
-	root := &BinaryOperation{}
-	root.Operation = Add
-	root.LeftNode = &IntLiteral{IntValue: 5}
-	root.RightNode = level2
+	level2 := &UnaryOperation{
+		LeftOperation: Subtract,
+		RightNode:     &IntLiteral{IntValue: 5},
+	}
+	root := &BinaryOperation{
+		LeftNode:  &IntLiteral{IntValue: 5},
+		RightNode: level2,
+		Operation: Add,
+	}
 
 	// Create parser
 	p, err := InitParser(expression, t.Name())
@@ -791,15 +805,18 @@ func TestExpression_UnaryNegative(t *testing.T) {
 
 func TestExpression_MultiNegationUnary(t *testing.T) {
 	expression := `---5`
-	level3 := &UnaryOperation{}
-	level3.LeftOperation = Subtract
-	level3.RightNode = &IntLiteral{IntValue: 5}
-	level2 := &UnaryOperation{}
-	level2.LeftOperation = Subtract
-	level2.RightNode = level3
-	root := &UnaryOperation{}
-	root.LeftOperation = Subtract
-	root.RightNode = level2
+	level3 := &UnaryOperation{
+		LeftOperation: Subtract,
+		RightNode:     &IntLiteral{IntValue: 5},
+	}
+	level2 := &UnaryOperation{
+		LeftOperation: Subtract,
+		RightNode:     level3,
+	}
+	root := &UnaryOperation{
+		LeftOperation: Subtract,
+		RightNode:     level2,
+	}
 	p, err := InitParser(expression, t.Name())
 	assert.NoError(t, err)
 	parsedResult, err := p.ParseExpression()
@@ -812,12 +829,14 @@ func TestExpression_MultiNegationUnary(t *testing.T) {
 
 func TestExpression_MultiNegationUnaryParentheses(t *testing.T) {
 	expression := `-(-5)`
-	level2 := &UnaryOperation{}
-	level2.LeftOperation = Subtract
-	level2.RightNode = &IntLiteral{IntValue: 5}
-	root := &UnaryOperation{}
-	root.LeftOperation = Subtract
-	root.RightNode = level2
+	level2 := &UnaryOperation{
+		LeftOperation: Subtract,
+		RightNode:     &IntLiteral{IntValue: 5},
+	}
+	root := &UnaryOperation{
+		LeftOperation: Subtract,
+		RightNode:     level2,
+	}
 	p, err := InitParser(expression, t.Name())
 	assert.NoError(t, err)
 	parsedResult, err := p.ParseExpression()
@@ -830,12 +849,14 @@ func TestExpression_MultiNegationUnaryParentheses(t *testing.T) {
 
 func TestExpression_MultiNotUnary(t *testing.T) {
 	expression := `!!true`
-	level2 := &UnaryOperation{}
-	level2.LeftOperation = Not
-	level2.RightNode = &BooleanLiteral{BooleanValue: true}
-	root := &UnaryOperation{}
-	root.LeftOperation = Not
-	root.RightNode = level2
+	level2 := &UnaryOperation{
+		LeftOperation: Not,
+		RightNode:     &BooleanLiteral{BooleanValue: true},
+	}
+	root := &UnaryOperation{
+		LeftOperation: Not,
+		RightNode:     level2,
+	}
 	p, err := InitParser(expression, t.Name())
 	assert.NoError(t, err)
 	parsedResult, err := p.ParseExpression()
@@ -846,8 +867,9 @@ func TestExpression_MultiNotUnary(t *testing.T) {
 	assert.Equals[Node](t, parsedResult, root)
 }
 
-// In the following two tests, we'll test a simple comparison, and a comparison that requires two.
-// We'll test all operators in the evaluation tests.
+// In the binary operator grammar tests, not all operators are tested
+// in every scenario because not every operator has its own code path.
+// The per-operator tests are done in expression_evaluate_test.go
 
 func TestExpression_SimpleComparison(t *testing.T) {
 	expression := "2 > 2"
@@ -856,10 +878,11 @@ func TestExpression_SimpleComparison(t *testing.T) {
 	//   >
 	//  / \
 	// 2   2
-	root := &BinaryOperation{}
-	root.Operation = GreaterThan
-	root.LeftNode = &IntLiteral{IntValue: 2}
-	root.RightNode = &IntLiteral{IntValue: 2}
+	root := &BinaryOperation{
+		LeftNode:  &IntLiteral{IntValue: 2},
+		RightNode: &IntLiteral{IntValue: 2},
+		Operation: GreaterThan,
+	}
 
 	// Create parser
 	p, err := InitParser(expression, t.Name())
@@ -883,11 +906,11 @@ func TestExpression_SimpleComparisonTwoToken(t *testing.T) {
 	//  >=
 	//  / \
 	// 2   2
-	root := &BinaryOperation{}
-	root.Operation = GreaterThanEquals
-	root.LeftNode = &IntLiteral{IntValue: 2}
-	root.RightNode = &IntLiteral{IntValue: 2}
-
+	root := &BinaryOperation{
+		LeftNode:  &IntLiteral{IntValue: 2},
+		RightNode: &IntLiteral{IntValue: 2},
+		Operation: GreaterThanEqualTo,
+	}
 	// Create parser
 	p, err := InitParser(expression, t.Name())
 
@@ -927,20 +950,22 @@ func TestExpression_ErrIncorrectEquals(t *testing.T) {
 func TestExpression_MixedComparisons(t *testing.T) {
 	expression := "0 < 1 + 2"
 
-	// 5 + -5 as tree
+	// 0 < 1 + 2 as tree
 	//     <
 	//    / \
 	//   0   +
 	//      / \
 	//     1   2
-	level2 := &BinaryOperation{}
-	level2.Operation = Add
-	level2.LeftNode = &IntLiteral{IntValue: 1}
-	level2.RightNode = &IntLiteral{IntValue: 2}
-	root := &BinaryOperation{}
-	root.Operation = LessThan
-	root.LeftNode = &IntLiteral{IntValue: 0}
-	root.RightNode = level2
+	level2 := &BinaryOperation{
+		LeftNode:  &IntLiteral{IntValue: 1},
+		RightNode: &IntLiteral{IntValue: 2},
+		Operation: Add,
+	}
+	root := &BinaryOperation{
+		LeftNode:  &IntLiteral{IntValue: 0},
+		RightNode: level2,
+		Operation: LessThan,
+	}
 
 	// Create parser
 	p, err := InitParser(expression, t.Name())
@@ -963,10 +988,11 @@ func TestExpression_AndLogic(t *testing.T) {
 	//     &&
 	//    /  \
 	//  true  false
-	root := &BinaryOperation{}
-	root.Operation = And
-	root.LeftNode = &BooleanLiteral{BooleanValue: true}
-	root.RightNode = &BooleanLiteral{BooleanValue: false}
+	root := &BinaryOperation{
+		LeftNode:  &BooleanLiteral{BooleanValue: true},
+		RightNode: &BooleanLiteral{BooleanValue: false},
+		Operation: And,
+	}
 
 	// Create parser
 	p, err := InitParser(expression, t.Name())
@@ -984,41 +1010,52 @@ func TestExpression_AndLogic(t *testing.T) {
 }
 
 func TestExpression_AllTypes(t *testing.T) {
-	expression := "2 * 3 + 4 > 2 || $.test && !true"
+	expression := "2 * 3 + 4 > 2 % 5 || $.test && !true"
 
-	// "2 * 3 + 4 > 2 || $.test && !true"
-	//               ||
-	//            /      \
-	//          >          &&
-	//        /  \       /    \
-	//       +    2   $.test   !
-	//     /   \               |
-	//    *     4             true
+	// 2 * 3 + 4 > 2 % 5 || $.test && !true as tree
+	//                 ||
+	//             /        \
+	//           >            &&
+	//        /     \        /    \
+	//       +       %    $.test   !
+	//     /  \     / \            |
+	//    *    4   2   5          true
 	//   / \
 	//  2   3
-	twoTimesThree := &BinaryOperation{}
-	twoTimesThree.Operation = Multiply
-	twoTimesThree.LeftNode = &IntLiteral{IntValue: 2}
-	twoTimesThree.RightNode = &IntLiteral{IntValue: 3}
-	oneTimesThreePlusFour := &BinaryOperation{}
-	oneTimesThreePlusFour.Operation = Add
-	oneTimesThreePlusFour.LeftNode = twoTimesThree
-	oneTimesThreePlusFour.RightNode = &IntLiteral{IntValue: 4}
-	greaterThanTwo := &BinaryOperation{}
-	greaterThanTwo.Operation = GreaterThan
-	greaterThanTwo.LeftNode = oneTimesThreePlusFour
-	greaterThanTwo.RightNode = &IntLiteral{IntValue: 2}
-	notNode := &UnaryOperation{}
-	notNode.LeftOperation = Not
-	notNode.RightNode = &BooleanLiteral{BooleanValue: true}
-	rightNode := &BinaryOperation{}
-	rightNode.Operation = And
-	rightNode.LeftNode = &Identifier{IdentifierName: "$.test"}
-	rightNode.RightNode = notNode
-	root := &BinaryOperation{}
-	root.Operation = Or
-	root.LeftNode = greaterThanTwo
-	root.RightNode = rightNode
+	multiplicationNode := &BinaryOperation{
+		LeftNode:  &IntLiteral{IntValue: 2},
+		RightNode: &IntLiteral{IntValue: 3},
+		Operation: Multiply,
+	}
+	addNode := &BinaryOperation{
+		LeftNode:  multiplicationNode,
+		RightNode: &IntLiteral{IntValue: 4},
+		Operation: Add,
+	}
+	modNode := &BinaryOperation{
+		LeftNode:  &IntLiteral{IntValue: 2},
+		RightNode: &IntLiteral{IntValue: 5},
+		Operation: Modulus,
+	}
+	greaterThanNode := &BinaryOperation{
+		LeftNode:  addNode,
+		RightNode: modNode,
+		Operation: GreaterThan,
+	}
+	notNode := &UnaryOperation{
+		LeftOperation: Not,
+		RightNode:     &BooleanLiteral{BooleanValue: true},
+	}
+	andNode := &BinaryOperation{
+		LeftNode:  &Identifier{IdentifierName: "$.test"},
+		RightNode: notNode,
+		Operation: And,
+	}
+	root := &BinaryOperation{
+		LeftNode:  greaterThanNode,
+		RightNode: andNode,
+		Operation: Or,
+	}
 
 	// Create parser
 	p, err := InitParser(expression, t.Name())
@@ -1036,7 +1073,9 @@ func TestExpression_AllTypes(t *testing.T) {
 	assert.Equals(t, parsedResult.String(), root.String())
 }
 
-// Test eating incorrect token (for example, missing expected closing bracket)
+// Test unexpected tokens
+// This is specifically targeted for places where a specific token is always expected,
+// which is where .eat is called.
 func TestExpression_MismatchedPair(t *testing.T) {
 	bracketAccessExpr := "$.test[5)"
 	// Create parser

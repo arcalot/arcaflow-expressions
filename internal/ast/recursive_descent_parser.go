@@ -268,13 +268,13 @@ func (p *Parser) parseMathOperator() (MathOperationType, error) {
 			}
 			switch firstToken {
 			case NotToken:
-				return NotEquals, nil
+				return NotEqualTo, nil
 			case GreaterThanToken:
-				return GreaterThanEquals, nil
+				return GreaterThanEqualTo, nil
 			case LessThanToken:
-				return LessThanEquals, nil
+				return LessThanEqualTo, nil
 			case EqualsToken:
-				return Equals, nil
+				return EqualTo, nil
 			default:
 				// If you get here, there is a case missing here that is in the outer switch
 				return Invalid, fmt.Errorf("illegal code state hit after token %s", firstToken)

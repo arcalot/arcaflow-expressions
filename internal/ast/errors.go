@@ -22,7 +22,7 @@ type InvalidGrammarError struct {
 }
 
 func (e *InvalidGrammarError) Error() string {
-	errorMsg := fmt.Sprintf("Token \"%s\" of ID '%s' placed in invalid configuration in '%s' at line %d:%d.",
+	errorMsg := fmt.Sprintf("Token %q of ID %q placed in invalid configuration in %q at line %d:%d.",
 		e.FoundToken.Value, e.FoundToken.TokenID, e.FoundToken.Filename, e.FoundToken.Line, e.FoundToken.Column)
 	switch {
 	case e.ExpectedTokens == nil:

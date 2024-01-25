@@ -405,8 +405,6 @@ var testData = map[string]struct {
 		false,
 		false,
 	},
-	// Next, the floating point math.
-	// Floating point numbers aren't exact in some scenarios due to precision limitations.
 	"simple-float-addition": {
 		nil,
 		nil,
@@ -807,7 +805,7 @@ var testData = map[string]struct {
 		true,
 		nil,
 	},
-	"casted-type": {
+	"function-float-addition": { // An example of how you would convert the type.
 		nil,
 		map[string]schema.CallableFunction{
 			"intToFloat": intToFloatFunc,

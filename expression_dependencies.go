@@ -139,7 +139,6 @@ func (c *dependencyContext) binaryOperationDependencies(
 				leftResult.resolvedType.TypeID(), rightResult.resolvedType.TypeID(), node.Operation.String())
 	}
 	inputType := leftResult.resolvedType.TypeID()
-	// Only literals and references are supported.
 	if inputType != schema.TypeIDInt && inputType != schema.TypeIDFloat &&
 		inputType != schema.TypeIDBool && inputType != schema.TypeIDString {
 		return nil,
@@ -177,7 +176,7 @@ func (c *dependencyContext) binaryOperationDependencies(
 					node.Operation.String(), inputType)
 		}
 		resultType = schema.NewBoolSchema()
-	case ast.GreaterThan, ast.LessThan, ast.GreaterThanEquals, ast.LessThanEquals:
+	case ast.GreaterThan, ast.LessThan, ast.GreaterThanEqualTo, ast.LessThanEqualTo:
 		// Quantity inequality. Not supported on boolean inputs.
 		if inputType == schema.TypeIDBool {
 			return nil,
@@ -185,7 +184,7 @@ func (c *dependencyContext) binaryOperationDependencies(
 					node.Operation.String())
 		}
 		resultType = schema.NewBoolSchema()
-	case ast.Equals, ast.NotEquals:
+	case ast.EqualTo, ast.NotEqualTo:
 		// Equality comparison. Any type in. Boolean out.
 		resultType = schema.NewBoolSchema()
 	case ast.Invalid:

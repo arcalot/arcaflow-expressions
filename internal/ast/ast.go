@@ -210,7 +210,7 @@ func (l *ArgumentList) GetChild(index int) (Node, error) {
 	return l.Arguments[index], nil
 }
 
-// String returns the identifier name.
+// String gives a comma-separated list of the arguments
 func (l *ArgumentList) String() string {
 	if len(l.Arguments) == 0 {
 		return ""
@@ -232,12 +232,12 @@ const (
 	Divide
 	Modulus
 	Power
-	Equals
-	NotEquals
+	EqualTo
+	NotEqualTo
 	GreaterThan
 	LessThan
-	GreaterThanEquals
-	LessThanEquals
+	GreaterThanEqualTo
+	LessThanEqualTo
 	And
 	Or
 	Not
@@ -255,19 +255,21 @@ func (e MathOperationType) String() string {
 		return "*"
 	case Divide:
 		return "÷"
+	case Modulus:
+		return "%"
 	case Power:
 		return "^"
-	case Equals:
+	case EqualTo:
 		return "=="
-	case NotEquals:
+	case NotEqualTo:
 		return "!="
 	case GreaterThan:
 		return ">"
 	case LessThan:
 		return "<"
-	case GreaterThanEquals:
+	case GreaterThanEqualTo:
 		return ">="
-	case LessThanEquals:
+	case LessThanEqualTo:
 		return "<="
 	case And:
 		return "&&"
@@ -286,17 +288,18 @@ type BinaryOperation struct {
 	Operation MathOperationType
 }
 
-// Right returns nil, because an identifier does not branch left and right.
 func (b *BinaryOperation) Right() Node {
 	return b.RightNode
 }
 
-// Left returns nil, because an identifier does not branch left and right.
 func (b *BinaryOperation) Left() Node {
 	return b.LeftNode
 }
 
-// String returns the identifier name.
+// String returns the left node, followed by the operator, followed by the right node.
+// The left and right nodes are clarified with (), because context that determined order of
+// operations, like parentheses, are not explicitly retained in the tree. But the structure
+// of the tree represents the evaluation order present in the original expression.
 func (b *BinaryOperation) String() string {
 	return "(" + b.LeftNode.String() + ") " + b.Operation.String() + " (" + b.RightNode.String() + ")"
 }
@@ -306,7 +309,8 @@ type UnaryOperation struct {
 	RightNode     Node
 }
 
-// String returns the identifier name.
+// String returns the operation, followed by the string representation of the right node.
+// The wrapped node is surrounded by parentheses to remove ambiguity.
 func (b *UnaryOperation) String() string {
-	return b.LeftOperation.String() + " " + b.RightNode.String()
+	return b.LeftOperation.String() + "(" + b.RightNode.String() + ") "
 }
