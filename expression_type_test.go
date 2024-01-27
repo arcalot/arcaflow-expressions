@@ -327,7 +327,7 @@ func TestTypeResolution_Error_NonBoolType(t *testing.T) {
 	// Non-bool type for operation that requires boolean types
 	expr, err := expressions.New(`0 && 1`)
 	assert.NoError(t, err)
-	_, err = expr.Dependencies(testScope, nil, nil, fullDataRequirements)
+	_, err = expr.Type(testScope, nil, nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "non-boolean type")
 }

@@ -7,30 +7,27 @@ import (
 )
 
 /*
-Current grammar:
-root_expression ::= or_expression
-or_expression ::= and_expression [ "|" "|" and_expression ]
-and_expression ::= not_expression [ "&" "&" unary_expression ]
-not_expression ::= "[!"] comparison_expression
-comparison_expression ::= addition_subtraction_expression [ comparison_operator addition_subtraction_expression ]
-comparison_operator ::= ">" | "<" | ">" "=" | "<" "=" | "=" "=" | "!" "="
-addition_subtraction_expression ::= multiplication_division_expression [ addition_subtraction_operator multiplication_division_expression]
-addition_subtraction_operator ::=  "+" | "-"
-multiplication_division_expression ::= exponents_expression [ multiplication_division_operator exponents_expression ]
-multiplication_division_operator ::=  "*" | "/" | "%"
-exponents_expression ::= parentheses_expression [ "^" parentheses_expression ]
-parentheses_expression ::= negation_expression | "(" root_expression ")"
-negation_expression ::= ["-"] comparison_expression
-value_or_access_expression ::= root_identifier [expression_access] | literal | function_call
-chained_expression := identifier [expression_access]
-expression_access ::= map_access | dot_notation
-map_access ::= "[" key "]" [chained_expression]
-dot_notation ::= "." identifier [chained_expression]
-root_identifier ::= identifier | "$"
-literal := IntLiteralToken | StringLiteralToken
-function_call := identifier "(" [argument_list] ")"
-argument_list := argument_list "," root_expression | root_expression
-binary_operation := root_expression binary_operator root_expression
+Current grammar in Backus–Naur form:
+<root_expression> ::= <or_expression>
+<or_expression> ::= <and_expression> [ "|" "|" <and_expression> ]
+<and_expression> ::= <not_expression> [ "&" "&" <not_expression> ]
+<not_expression> ::= [ "!" ] <comparison_expression>
+<comparison_expression> ::= <addition_subtraction_expression> [ <comparison_operator> <add_sub_expression> ]
+<comparison_operator> ::= ">" | "<" | ">" "=" | "<" "=" | "=" "=" | "!" "="
+<add_sub_expression> ::= <multiply_divide_expression> [ <add_sub_operator> <multiply_divide_expression>]
+<add_sub_operator> ::=  "+" | "-"
+<multiply_divide_expression> ::= <exponents_expression> [ <multiply_divide_operator> <exponents_expression> ]
+<multiply_divide_operator> ::=  "*" | "/" | "%"
+<exponents_expression> ::= <parentheses_expression> [ "^" <parentheses_expression> ]
+<parentheses_expression> ::= <negation_expression> | "(" <root_expression> ")"
+<negation_expression> ::= ["-"] <value_or_access_expression>
+<value_or_access_expression> ::= <literal> <chained_value_or_access> | IdentifierToken <chained_value_or_access> | <function_call>
+<function_call> := IdentifierToken "(" [ <argument_list> ] ")"
+<chained_value_or_access> := <dot_notation> [ <chained_value_or_access> ] | <bracket_access> [ <chained_value_or_access> ]
+<dot_notation> := "." IdentifierToken
+<bracket_access> := "[" <root_expression> "]"
+<literal> := IntLiteralToken | StringLiteralToken | FloatLiteralToken | BooleanLiteralToken
+<argument_list> := <root_expression> | <argument_list> "," <root_expression>
 
 filtering/querying will be added later if needed.
 */
@@ -162,6 +159,13 @@ func (p *Parser) parseArgs() (*ArgumentList, error) {
 	argNodes := make([]Node, 0)
 	expectedToken := ParenthesesStartToken
 	for i := 0; ; i++ {
+		// Check for incomplete scenario.
+		if p.currentToken == nil && i != 0 { // Reached end too early.
+			return nil, &InvalidGrammarError{
+				FoundToken:     p.currentToken,
+				ExpectedTokens: []TokenID{ParenthesesEndToken},
+			}
+		}
 		// Validate and go past the first ( on the first iteration, and commas on later iterations.
 		if i != 0 && p.currentToken.TokenID == ParenthesesEndToken {
 			// Advances past the )
@@ -172,9 +176,13 @@ func (p *Parser) parseArgs() (*ArgumentList, error) {
 			return &ArgumentList{Arguments: argNodes}, nil
 		} else if p.currentToken.TokenID != expectedToken {
 			// The first is preceded by a (, the others are preceded by ,
+			expectedTokens := []TokenID{expectedToken}
+			if i != 0 {
+				expectedTokens = append(expectedTokens, ParenthesesEndToken)
+			}
 			return nil, &InvalidGrammarError{
 				FoundToken:     p.currentToken,
-				ExpectedTokens: []TokenID{expectedToken, ParenthesesEndToken},
+				ExpectedTokens: expectedTokens,
 			}
 		}
 
@@ -182,6 +190,13 @@ func (p *Parser) parseArgs() (*ArgumentList, error) {
 		err := p.advanceToken()
 		if err != nil {
 			return nil, err
+		}
+		// Check for incomplete scenario.
+		if p.currentToken == nil { // Reached end too early.
+			return nil, &InvalidGrammarError{
+				FoundToken:     p.currentToken,
+				ExpectedTokens: []TokenID{ParenthesesEndToken},
+			}
 		}
 		// Check end condition
 		if i == 0 && p.currentToken.TokenID == ParenthesesEndToken {
@@ -261,7 +276,8 @@ func (p *Parser) parseMathOperator() (MathOperationType, error) {
 		return Modulus, nil
 	case NotToken, GreaterThanToken, LessThanToken, EqualsToken:
 		// Need to validate and advance past the following =
-		if p.currentToken.TokenID == EqualsToken {
+		if p.currentToken != nil && p.currentToken.TokenID == EqualsToken {
+			// Equals is next, so return based on the token preceding the = token.
 			err := p.advanceToken()
 			if err != nil {
 				return Invalid, err
@@ -277,9 +293,10 @@ func (p *Parser) parseMathOperator() (MathOperationType, error) {
 				return EqualTo, nil
 			default:
 				// If you get here, there is a case missing here that is in the outer switch
-				return Invalid, fmt.Errorf("illegal code state hit after token %s", firstToken)
+				panic(fmt.Errorf("illegal code state hit after token %s", firstToken))
 			}
 		} else {
+			// No token, or non-equals token next, so validate as a single token.
 			switch firstToken {
 			case GreaterThanToken:
 				return GreaterThan, nil
@@ -287,9 +304,12 @@ func (p *Parser) parseMathOperator() (MathOperationType, error) {
 				return LessThan, nil
 			case NotToken:
 				return Not, nil
-			default:
-				// Not equal or double equals
+			case EqualsToken:
+				// Expected double equals, but got single equals
 				return Invalid, &InvalidGrammarError{FoundToken: p.currentToken, ExpectedTokens: []TokenID{EqualsToken}}
+			default:
+				// If you get here, there is a case missing here that is in the outer switch
+				panic(fmt.Errorf("illegal code state hit after token %s", firstToken))
 			}
 		}
 	case AndToken:
@@ -321,19 +341,24 @@ func (p *Parser) parseMathOperator() (MathOperationType, error) {
 			GreaterThanToken,
 			LessThanToken,
 			EqualsToken,
+			AndToken,
+			OrToken,
+			ModulusToken,
 		}}
 	}
 }
 
 // parseBinaryExpression parses a binary expression that has one of the supported operators,
 // and uses childNodeParser for the left and right of the node.
-// If the given operator isn't found, it still continues down recursively with the childNodeParser.
+// If, after parsing the first operand, the operator is not present, then the function returns
+// successfully.
 func (p *Parser) parseBinaryExpression(supportedOperators []TokenID, childNodeParser func() (Node, error)) (Node, error) {
 	root, err := childNodeParser()
 	if err != nil {
 		return nil, err
 	}
-	// Loop while there is addition or subtraction ahead.
+	// Loop to allow non-recursively evaluated repeating compatible operations.
+	// Necessary for proper order of operations as currently designed.
 	for p.currentToken != nil && sliceContains(supportedOperators, p.currentToken.TokenID) {
 		operatorToken, err := p.parseMathOperator()
 		if err != nil {
@@ -376,11 +401,13 @@ func (p *Parser) parseLeftUnaryExpression(supportedOperators []TokenID, childNod
 }
 
 // ORDER OF OPERATIONS
-// negation P E MD AS Comparisons not and or
+// negation Parentheses Exponent Multiplication&Division Addition&Subtraction Comparisons not and or
 // The higher-precedence ones should be deepest in the call tree. So logical or should be called first.
+// For more details, see the grammar at the top of this file.
 
 func (p *Parser) parseRootExpression() (Node, error) {
-	// Currently or is the first one to call based on the order of operations specified above.
+	// Currently `or` is the first one to call based on the order of operations specified above,
+	// and based on the grammar specified at the top of the file.
 	return p.parseConditionalOr()
 }
 
@@ -415,41 +442,43 @@ func (p *Parser) parseExponents() (Node, error) {
 }
 
 func (p *Parser) parseParentheses() (Node, error) {
-	// If parentheses are hit, start back at addition/subtraction.
-	if p.currentToken.TokenID == ParenthesesStartToken {
-		err := p.advanceToken() // Go past the parentheses
-		if err != nil {
-			return nil, err
-		}
-		// Back to the root
-		node, err := p.parseRootExpression()
-		if err != nil {
-			return nil, err
-		}
-		err = p.eat([]TokenID{ParenthesesEndToken})
-		if err != nil {
-			return nil, err
-		}
-		return node, nil
+	// If parentheses, continue recursing back from the root.
+	// If not parentheses, recurse down into negation.
+	if p.currentToken.TokenID != ParenthesesStartToken {
+		return p.parseNegationOperation()
 	}
-	return p.parseNegationOperation()
+	err := p.advanceToken() // Go past the parentheses
+	if err != nil {
+		return nil, err
+	}
+	node, err := p.parseRootExpression()
+	if err != nil {
+		return nil, err
+	}
+	err = p.eat([]TokenID{ParenthesesEndToken})
+	if err != nil {
+		return nil, err
+	}
+	return node, nil
 }
 
 func (p *Parser) parseNegationOperation() (Node, error) {
-	return p.parseLeftUnaryExpression([]TokenID{NegationToken}, p.parseRootValueOrAccess)
+	return p.parseLeftUnaryExpression([]TokenID{NegationToken}, p.parseValueOrAccessExpression)
 }
 
+var expStartIdentifierTokens = []TokenID{RootAccessToken, CurrentObjectAccessToken, IdentifierToken}
+var literalTokens = []TokenID{StringLiteralToken, IntLiteralToken, BooleanLiteralToken, FloatLiteralToken}
+var validStartTokens = append(expStartIdentifierTokens, literalTokens...)
+
 // parseRootExpression parses a root expression
-func (p *Parser) parseRootValueOrAccess() (Node, error) {
+func (p *Parser) parseValueOrAccessExpression() (Node, error) {
 	if p.currentToken == nil || !sliceContains(validStartTokens, p.currentToken.TokenID) {
 		return nil, &InvalidGrammarError{FoundToken: p.currentToken, ExpectedTokens: validStartTokens}
 	} else if p.atRoot && p.currentToken.TokenID == CurrentObjectAccessToken {
 		// Can't support @ at root
 		return nil, &InvalidGrammarError{FoundToken: p.currentToken, ExpectedTokens: []TokenID{RootAccessToken, IdentifierToken}}
 	}
-	if p.atRoot {
-		p.atRoot = false // Know when you can reference the current object.
-	}
+	p.atRoot = false // Know when you can reference the current object.
 
 	var firstNode Node
 	var err error
@@ -486,10 +515,6 @@ func (p *Parser) parseRootValueOrAccess() (Node, error) {
 		return firstNode, nil
 	}
 }
-
-var expStartIdentifierTokens = []TokenID{RootAccessToken, CurrentObjectAccessToken, IdentifierToken}
-var literalTokens = []TokenID{StringLiteralToken, IntLiteralToken, BooleanLiteralToken, FloatLiteralToken}
-var validStartTokens = append(expStartIdentifierTokens, literalTokens...)
 
 // parseSubExpression parses all the dot notations, map accesses, binary operations, and function calls.
 func (p *Parser) parseChainedValueOrAccess(rootNode Node) (Node, error) {

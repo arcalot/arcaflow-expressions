@@ -75,6 +75,9 @@ type FloatLiteral struct {
 
 // String returns a string representation of the float contained.
 func (l *FloatLiteral) String() string {
+	// 'f' for full float, instead of exponential format.
+	// The third arg, prec, is ignored with 'f' formatting.
+	// The fourth arg specifies that we're using 64-bit floats.
 	return strconv.FormatFloat(l.FloatValue, 'f', -1, 64)
 }
 

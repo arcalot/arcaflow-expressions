@@ -588,22 +588,22 @@ func TestExpression_SimpleAdd(t *testing.T) {
 }
 
 func TestExpression_ThreeSub(t *testing.T) {
-	expression := "1 - 2 - 3"
+	expression := "1.0 - 2.0 - 3.0"
 
-	// 1 - 2 - 3 as tree
+	// 1.0 - 2.0 - 3.0 as tree
 	//     -
 	//    / \
-	//   -   3
+	//   -   3.0
 	//  / \
-	// 1    2
+	// 1.0    2.0
 	level2 := &BinaryOperation{
-		LeftNode:  &IntLiteral{IntValue: 1},
-		RightNode: &IntLiteral{IntValue: 2},
+		LeftNode:  &FloatLiteral{FloatValue: 1.0},
+		RightNode: &FloatLiteral{FloatValue: 2.0},
 		Operation: Subtract,
 	}
 	root := &BinaryOperation{
 		LeftNode:  level2,
-		RightNode: &IntLiteral{IntValue: 3},
+		RightNode: &FloatLiteral{FloatValue: 3.0},
 		Operation: Subtract,
 	}
 
@@ -1118,4 +1118,92 @@ func TestExpressionErrorChainLiteral(t *testing.T) {
 	_, err = p.ParseExpression()
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "dot notation cannot follow a literal")
+}
+
+func TestParseArgs_badStart(t *testing.T) {
+	expression := `))`
+	p, err := InitParser(expression, t.Name())
+	assert.NoError(t, err)
+	err = p.advanceToken()
+	assert.NoError(t, err)
+	_, err = p.parseArgs()
+	assert.Error(t, err)
+	var grammarErr *InvalidGrammarError
+	ok := errors.As(err, &grammarErr)
+	if !ok {
+		t.Fatalf("Returned error is not InvalidGrammarError")
+	}
+	assert.Equals(t, grammarErr.ExpectedTokens, []TokenID{ParenthesesStartToken})
+}
+
+func TestParseArgs_badEnd1(t *testing.T) {
+	// This end will test using an open parentheses instead of a close parentheses
+	// This will end up making it recurse into a second call to parseArgs, where it then expects it to be closed.
+	expression := `(""(`
+	p, err := InitParser(expression, t.Name())
+	assert.NoError(t, err)
+	err = p.advanceToken()
+	assert.NoError(t, err)
+	_, err = p.parseArgs()
+	assert.Error(t, err)
+	var grammarErr *InvalidGrammarError
+	ok := errors.As(err, &grammarErr)
+	if !ok {
+		t.Fatalf("Returned error is not InvalidGrammarError")
+	}
+	assert.Equals(t, grammarErr.ExpectedTokens, []TokenID{ParenthesesEndToken})
+}
+
+func TestParseArgs_badEnd2(t *testing.T) {
+	// This end will test a missing close parentheses.
+	// This will create a nil value for nextToken that must be handled properly.
+	expression := `(""`
+	p, err := InitParser(expression, t.Name())
+	assert.NoError(t, err)
+	err = p.advanceToken()
+	assert.NoError(t, err)
+	_, err = p.parseArgs()
+	assert.Error(t, err)
+	var grammarErr *InvalidGrammarError
+	ok := errors.As(err, &grammarErr)
+	if !ok {
+		t.Fatalf("Returned error is not InvalidGrammarError")
+	}
+	assert.Equals(t, grammarErr.ExpectedTokens, []TokenID{ParenthesesEndToken})
+}
+
+func TestParseArgs_badSeparator(t *testing.T) {
+	// This end will test a missing close parentheses.
+	// This will create a nil value for nextToken that must be handled properly.
+	expression := `(""1`
+	p, err := InitParser(expression, t.Name())
+	assert.NoError(t, err)
+	err = p.advanceToken()
+	assert.NoError(t, err)
+	_, err = p.parseArgs()
+	assert.Error(t, err)
+	var grammarErr *InvalidGrammarError
+	ok := errors.As(err, &grammarErr)
+	if !ok {
+		t.Fatalf("Returned error is not InvalidGrammarError")
+	}
+	assert.Equals(t, grammarErr.ExpectedTokens, []TokenID{ListSeparatorToken, ParenthesesEndToken})
+}
+
+func TestParseArgs_badFirstToken(t *testing.T) {
+	// This end will test a missing close parentheses.
+	// This will create a nil value for nextToken that must be handled properly.
+	expression := `1`
+	p, err := InitParser(expression, t.Name())
+	assert.NoError(t, err)
+	err = p.advanceToken()
+	assert.NoError(t, err)
+	_, err = p.parseArgs()
+	assert.Error(t, err)
+	var grammarErr *InvalidGrammarError
+	ok := errors.As(err, &grammarErr)
+	if !ok {
+		t.Fatalf("Returned error is not InvalidGrammarError")
+	}
+	assert.Equals(t, grammarErr.ExpectedTokens, []TokenID{ParenthesesStartToken})
 }
