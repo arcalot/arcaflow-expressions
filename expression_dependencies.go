@@ -167,7 +167,7 @@ func (c *dependencyContext) binaryOperationDependencies(
 		)
 		resultType = schema.NewBoolSchema()
 	case ast.GreaterThan, ast.LessThan, ast.GreaterThanEqualTo, ast.LessThanEqualTo:
-		// Inequality. Not supported on boolean inputs.
+		// Inequality. Int, float, or string in; bool out.
 		err = validateValidBinaryOpTypes(
 			"inequality",
 			node,
@@ -177,7 +177,14 @@ func (c *dependencyContext) binaryOperationDependencies(
 		)
 		resultType = schema.NewBoolSchema()
 	case ast.EqualTo, ast.NotEqualTo:
-		// Equality comparison. Any type in. Boolean out.
+		// Equality comparison. Any supported type in. Bool out.
+		err = validateValidBinaryOpTypes(
+			"equality",
+			node,
+			leftResult.resolvedType.TypeID(),
+			rightResult.resolvedType.TypeID(),
+			[]schema.TypeID{schema.TypeIDInt, schema.TypeIDString, schema.TypeIDFloat, schema.TypeIDBool},
+		)
 		resultType = schema.NewBoolSchema()
 	case ast.Invalid:
 		panic(fmt.Errorf("attempted to perform invalid operation (binary operation type invalid)"))
