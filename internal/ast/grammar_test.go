@@ -1224,7 +1224,7 @@ func TestParseArgs_badFirstToken(t *testing.T) {
 	assert.Equals(t, grammarErr.ExpectedTokens, []TokenID{ParenthesesStartToken})
 }
 
-func TestParseString_EscapedQuotes(t *testing.T) {
+func TestParseString_EscapedStrings(t *testing.T) {
 	expression := `"a\"b" "a\tb" "a\\b" "a\bb" "a\nb"`
 	p, err := InitParser(expression, t.Name())
 	assert.NoError(t, err)

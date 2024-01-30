@@ -284,7 +284,8 @@ func TestTypeResolution_BinaryMathHomogeneousFloatLiterals(t *testing.T) {
 }
 
 func TestTypeResolution_Error_BinaryMathHeterogeneousLiterals(t *testing.T) {
-	// Test literal int and float math, error mixed types
+	// The binary operation type-checker checks both the left and the right
+	// But there are multiple valid types, so validate that it checks that they match.
 	expr, err := expressions.New("5 + 5.0")
 	assert.NoError(t, err)
 	_, err = expr.Type(nil, nil, nil)
@@ -329,7 +330,7 @@ func TestTypeResolution_Error_NonBoolType(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = expr.Type(testScope, nil, nil)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "non-boolean type")
+	assert.Contains(t, err.Error(), "invalid type")
 }
 
 func TestTypeResolution_TestMixedOperations(t *testing.T) {
@@ -354,13 +355,24 @@ func TestTypeResolution_TestMixedOperations(t *testing.T) {
 	assert.Equals[schema.Type](t, typeResult, schema.NewBoolSchema())
 }
 
+func TestDependencyResolution_Error_TestSecondTypeIncorrect(t *testing.T) {
+	// The binary operation type-checker checks both the left and the right
+	// Validate that the right type is correctly validated.
+	expr, err := expressions.New(`5 + true`)
+	assert.NoError(t, err)
+	_, err = expr.Type(testScope, nil, nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid type")
+	assert.Contains(t, err.Error(), "right expression")
+}
+
 func TestDependencyResolution_Error_TestInvalidTypeOnBoolean(t *testing.T) {
 	// Tests invalid type for relational operator
 	expr, err := expressions.New("true > false")
 	assert.NoError(t, err)
 	_, err = expr.Type(testScope, nil, nil)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "attempted quantity inequality comparison operation")
+	assert.Contains(t, err.Error(), "invalid type")
 }
 
 func TestDependencyResolution_TestSizeComparison(t *testing.T) {
@@ -395,7 +407,7 @@ func TestDependencyResolution_Error_TestComparingScopes(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = expr.Type(testScope, nil, nil)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "incompatible type")
+	assert.Contains(t, err.Error(), "invalid type")
 }
 
 func TestDependencyResolution_Error_TestAddingScopes(t *testing.T) {
@@ -404,7 +416,7 @@ func TestDependencyResolution_Error_TestAddingScopes(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = expr.Type(testScope, nil, nil)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "incompatible type")
+	assert.Contains(t, err.Error(), "invalid type")
 }
 
 func TestDependencyResolution_Error_TestAddingMaps(t *testing.T) {
@@ -413,7 +425,7 @@ func TestDependencyResolution_Error_TestAddingMaps(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = expr.Type(testScope, nil, nil)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "incompatible type")
+	assert.Contains(t, err.Error(), "invalid type")
 }
 func TestDependencyResolution_Error_TestAddingLists(t *testing.T) {
 	// lists cannot be added
@@ -421,5 +433,5 @@ func TestDependencyResolution_Error_TestAddingLists(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = expr.Type(testScope, nil, nil)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "incompatible type")
+	assert.Contains(t, err.Error(), "invalid type")
 }
