@@ -413,6 +413,14 @@ var testData = map[string]struct {
 		false,
 		10.0,
 	},
+	"exponential-form-float-addition": {
+		nil,
+		nil,
+		`5.0E-5 + 4.0e2`,
+		false,
+		false,
+		400.00005,
+	},
 	"simple-float-subtraction": {
 		nil,
 		nil,

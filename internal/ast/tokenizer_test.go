@@ -46,7 +46,7 @@ func TestTokenizer(t *testing.T) {
 	}
 }
 
-func TestTokenizerWithEscapedStr(t *testing.T) {
+func TestTokenizer_TokenizerWithEscapedStr(t *testing.T) {
 	input := `$.output["ab\"|cd"]`
 	tokenizer := initTokenizer(input, filename)
 	expectedValue := []string{"$", ".", "output", "[", `"ab\"|cd"`, "]"}
@@ -58,7 +58,7 @@ func TestTokenizerWithEscapedStr(t *testing.T) {
 	}
 }
 
-func TestBinaryOperations(t *testing.T) {
+func TestTokenizer_BinaryOperations(t *testing.T) {
 	input := `5 + 5 / 1 >= 5^5`
 	tokenizer := initTokenizer(input, filename)
 	expectedValue := []TokenValue{
@@ -83,9 +83,10 @@ func TestBinaryOperations(t *testing.T) {
 		assert.Equals(t, nextToken.Line, expected.Line)
 		assert.Equals(t, nextToken.Column, expected.Column)
 	}
+	assert.Equals(t, tokenizer.hasNextToken(), false)
 }
 
-func TestWithFilterType(t *testing.T) {
+func TestTokenizer_WithFilterType(t *testing.T) {
 	input := "$.steps.foo.outputs[\"bar\"][?(@._type=='x')].a"
 	tokenizer := initTokenizer(input, filename)
 	expectedValue := []string{"$", ".", "steps", ".", "foo", ".", "outputs",
@@ -98,7 +99,7 @@ func TestWithFilterType(t *testing.T) {
 	}
 }
 
-func TestInvalidToken(t *testing.T) {
+func TestTokenizer_InvalidToken(t *testing.T) {
 	input := "[€"
 	tokenizer := initTokenizer(input, filename)
 	assert.Equals(t, tokenizer.hasNextToken(), true)
@@ -122,7 +123,7 @@ func TestInvalidToken(t *testing.T) {
 	assert.Equals(t, expectedError.InvalidToken.Value, "€")
 }
 
-func TestIntLiteral(t *testing.T) {
+func TestTokenizer_IntLiteral(t *testing.T) {
 	input := "70 07"
 	tokenizer := initTokenizer(input, filename)
 	assert.Equals(t, tokenizer.hasNextToken(), true)
@@ -139,8 +140,8 @@ func TestIntLiteral(t *testing.T) {
 	assert.Equals(t, tokenVal.Value, "07")
 }
 
-func TestFloatLiteral(t *testing.T) {
-	input := "0.0 40.099 05.00"
+func TestTokenizer_FloatLiteral(t *testing.T) {
+	input := "0.0 40.099 5.0e5 5.0E-5 05.00 5."
 	tokenizer := initTokenizer(input, filename)
 	assert.Equals(t, tokenizer.hasNextToken(), true)
 	tokenVal, err := tokenizer.getNext()
@@ -153,10 +154,30 @@ func TestFloatLiteral(t *testing.T) {
 	assert.Equals(t, tokenVal.TokenID, FloatLiteralToken)
 	assert.Equals(t, tokenVal.Value, "40.099")
 	assert.Equals(t, tokenizer.hasNextToken(), true)
-	_, err = tokenizer.getNext()
-	assert.Error(t, err)
+	tokenVal, err = tokenizer.getNext()
+	assert.NoError(t, err)
+	assert.Equals(t, tokenVal.TokenID, FloatLiteralToken)
+	assert.Equals(t, tokenVal.Value, "5.0e5")
+	assert.Equals(t, tokenizer.hasNextToken(), true)
+	tokenVal, err = tokenizer.getNext()
+	assert.NoError(t, err)
+	assert.Equals(t, tokenVal.TokenID, FloatLiteralToken)
+	assert.Equals(t, tokenVal.Value, "5.0E-5")
+	assert.Equals(t, tokenizer.hasNextToken(), true)
+	tokenVal, err = tokenizer.getNext()
+	assert.NoError(t, err)
+	assert.Equals(t, tokenVal.TokenID, FloatLiteralToken)
+	assert.Equals(t, tokenVal.Value, "05.00")
+	assert.Equals(t, tokenizer.hasNextToken(), true)
+	tokenVal, err = tokenizer.getNext()
+	assert.NoError(t, err)
+	assert.Equals(t, tokenVal.TokenID, FloatLiteralToken)
+	assert.Equals(t, tokenVal.Value, "5.")
+	assert.Equals(t, tokenizer.hasNextToken(), false)
+
 }
-func TestBooleanLiterals(t *testing.T) {
+
+func TestTokenizer_BooleanLiterals(t *testing.T) {
 	input := "true && false || false"
 	tokenizer := initTokenizer(input, filename)
 	assert.Equals(t, tokenizer.hasNextToken(), true)
@@ -191,9 +212,31 @@ func TestBooleanLiterals(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equals(t, tokenVal.TokenID, BooleanLiteralToken)
 	assert.Equals(t, tokenVal.Value, "false")
+	assert.Equals(t, tokenizer.hasNextToken(), false)
 }
 
-func TestWildcard(t *testing.T) {
+func TestTokenizer_StringLiteral(t *testing.T) {
+	input := `"" "a" "a\"b"`
+	tokenizer := initTokenizer(input, filename)
+	assert.Equals(t, tokenizer.hasNextToken(), true)
+	tokenVal, err := tokenizer.getNext()
+	assert.NoError(t, err)
+	assert.Equals(t, tokenVal.TokenID, StringLiteralToken)
+	assert.Equals(t, tokenVal.Value, `""`)
+	assert.Equals(t, tokenizer.hasNextToken(), true)
+	tokenVal, err = tokenizer.getNext()
+	assert.NoError(t, err)
+	assert.Equals(t, tokenVal.TokenID, StringLiteralToken)
+	assert.Equals(t, tokenVal.Value, `"a"`)
+	assert.Equals(t, tokenizer.hasNextToken(), true)
+	tokenVal, err = tokenizer.getNext()
+	assert.NoError(t, err)
+	assert.Equals(t, tokenVal.TokenID, StringLiteralToken)
+	assert.Equals(t, tokenVal.Value, `"a\"b"`)
+	assert.Equals(t, tokenizer.hasNextToken(), false)
+}
+
+func TestTokenizer_Wildcard(t *testing.T) {
 	input := `$.*`
 	tokenizer := initTokenizer(input, filename)
 	expectedValue := []string{"$", ".", "*"}

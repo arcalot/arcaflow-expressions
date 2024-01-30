@@ -396,6 +396,40 @@ func TestSubExpression(t *testing.T) {
 	assert.Equals(t, parsedRoot, root)
 }
 
+func TestParseExpression_Error_BracketAfterLiteral(t *testing.T) {
+	expression := "0[0]"
+	p, err := InitParser(expression, t.Name())
+
+	assert.NoError(t, err)
+
+	_, err = p.ParseExpression()
+	assert.Error(t, err)
+	assert.Equals(t, err.Error(), `bracket access cannot follow a literal; got "[" after "0"`)
+}
+
+func TestParseExpression_Error_DotAfterLiteral(t *testing.T) {
+	expression := "0 .a"
+	p, err := InitParser(expression, t.Name())
+
+	assert.NoError(t, err)
+
+	_, err = p.ParseExpression()
+	assert.Error(t, err)
+	assert.Equals(t, err.Error(), `dot notation cannot follow a literal; got "." after "0"`)
+}
+
+func TestParseExpression_Error_ParenthesesAfterLiteral(t *testing.T) {
+	expression := "0(0 + 0)"
+	p, err := InitParser(expression, t.Name())
+
+	assert.NoError(t, err)
+
+	parsedResult, err := p.ParseExpression()
+	assert.Error(t, err)
+	assert.Nil(t, parsedResult)
+	assert.Contains(t, err.Error(), "function call must start with an identifier")
+}
+
 func TestEmptyFunctionExpression(t *testing.T) {
 	expression := "funcName()"
 
@@ -1136,24 +1170,6 @@ func TestParseArgs_badStart(t *testing.T) {
 	assert.Equals(t, grammarErr.ExpectedTokens, []TokenID{ParenthesesStartToken})
 }
 
-func TestParseArgs_badEnd1(t *testing.T) {
-	// This end will test using an open parentheses instead of a close parentheses
-	// This will end up making it recurse into a second call to parseArgs, where it then expects it to be closed.
-	expression := `(""(`
-	p, err := InitParser(expression, t.Name())
-	assert.NoError(t, err)
-	err = p.advanceToken()
-	assert.NoError(t, err)
-	_, err = p.parseArgs()
-	assert.Error(t, err)
-	var grammarErr *InvalidGrammarError
-	ok := errors.As(err, &grammarErr)
-	if !ok {
-		t.Fatalf("Returned error is not InvalidGrammarError")
-	}
-	assert.Equals(t, grammarErr.ExpectedTokens, []TokenID{ParenthesesEndToken})
-}
-
 func TestParseArgs_badEnd2(t *testing.T) {
 	// This end will test a missing close parentheses.
 	// This will create a nil value for nextToken that must be handled properly.
@@ -1206,4 +1222,22 @@ func TestParseArgs_badFirstToken(t *testing.T) {
 		t.Fatalf("Returned error is not InvalidGrammarError")
 	}
 	assert.Equals(t, grammarErr.ExpectedTokens, []TokenID{ParenthesesStartToken})
+}
+
+func TestParseString_EscapedQuotes(t *testing.T) {
+	expression := `"a\"b" "a\tb" "a\\b" "a\bb" "a\nb"`
+	p, err := InitParser(expression, t.Name())
+	assert.NoError(t, err)
+	err = p.advanceToken()
+	assert.NoError(t, err)
+	result, err := p.parseStringLiteral()
+	assert.Equals(t, result.StrValue, `a"b`)
+	result, err = p.parseStringLiteral()
+	assert.Equals(t, result.StrValue, "a\tb")
+	result, err = p.parseStringLiteral()
+	assert.Equals(t, result.StrValue, `a\b`)
+	result, err = p.parseStringLiteral()
+	assert.Equals(t, result.StrValue, "a\bb")
+	result, err = p.parseStringLiteral()
+	assert.Equals(t, result.StrValue, "a\nb")
 }
