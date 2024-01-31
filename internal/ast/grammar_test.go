@@ -1185,7 +1185,7 @@ func TestParseArgs_badEnd2(t *testing.T) {
 	if !ok {
 		t.Fatalf("Returned error is not InvalidGrammarError")
 	}
-	assert.Equals(t, grammarErr.ExpectedTokens, []TokenID{ParenthesesEndToken})
+	assert.Equals(t, grammarErr.ExpectedTokens, []TokenID{ParenthesesEndToken, ListSeparatorToken})
 }
 
 func TestParseArgs_badSeparator(t *testing.T) {
@@ -1225,7 +1225,7 @@ func TestParseArgs_badFirstToken(t *testing.T) {
 }
 
 func TestParseString_EscapedStrings(t *testing.T) {
-	expression := `"a\"b" "a\tb" "a\\b" "a\bb" "a\nb"`
+	expression := `"a\"b" "a\tb" "a\\b" "a\bb" "a\nb" "a\\nb"`
 	p, err := InitParser(expression, t.Name())
 	assert.NoError(t, err)
 	err = p.advanceToken()
@@ -1245,4 +1245,7 @@ func TestParseString_EscapedStrings(t *testing.T) {
 	result, err = p.parseStringLiteral()
 	assert.NoError(t, err)
 	assert.Equals(t, result.StrValue, "a\nb")
+	result, err = p.parseStringLiteral()
+	assert.NoError(t, err)
+	assert.Equals(t, result.StrValue, "a\\nb")
 }

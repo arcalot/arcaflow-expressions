@@ -13,7 +13,7 @@ Current grammar in Backus–Naur form:
 <or_expression> ::= <and_expression> [ "|" "|" <and_expression> ]
 <and_expression> ::= <not_expression> [ "&" "&" <not_expression> ]
 <not_expression> ::= [ "!" ] <comparison_expression>
-<comparison_expression> ::= <addition_subtraction_expression> [ <comparison_operator> <add_sub_expression> ]
+<comparison_expression> ::= <add_sub_expression> [ <comparison_operator> <add_sub_expression> ]
 <comparison_operator> ::= ">" | "<" | ">" "=" | "<" "=" | "=" "=" | "!" "="
 <add_sub_expression> ::= <multiply_divide_expression> [ <add_sub_operator> <multiply_divide_expression>]
 <add_sub_operator> ::=  "+" | "-"
@@ -26,11 +26,11 @@ Current grammar in Backus–Naur form:
 <identifier_or_function> := IdentifierToken | <function_call>
 <function_call> := IdentifierToken "(" [ <argument_list> ] ")"
 <chained_access> := <chainable_access> [ <chained_access> ]
-<chainable_access_token> := <dot_notation> | <bracket_access>
+<chainable_access> := <dot_notation> | <bracket_access>
 <dot_notation> := "." IdentifierToken
 <bracket_access> := "[" <root_expression> "]"
 <literal> := IntLiteralToken | StringLiteralToken | FloatLiteralToken | BooleanLiteralToken
-<argument_list> := <root_expression> | <argument_list> "," <root_expression>
+<argument_list> := <root_expression> [ "," <argument_list> ]
 
 filtering/querying will be added later if needed.
 */
@@ -172,7 +172,7 @@ func (p *Parser) parseArgs() (*ArgumentList, error) {
 		if p.currentToken == nil && i != 0 { // Reached end too early.
 			return nil, &InvalidGrammarError{
 				FoundToken:     p.currentToken,
-				ExpectedTokens: []TokenID{ParenthesesEndToken},
+				ExpectedTokens: []TokenID{ParenthesesEndToken, ListSeparatorToken},
 			}
 		}
 		// Validate and go past the first ( on the first iteration, and commas on later iterations.
@@ -187,7 +187,7 @@ func (p *Parser) parseArgs() (*ArgumentList, error) {
 			// The first is preceded by a (, the others are preceded by ,
 			expectedTokens := []TokenID{expectedToken}
 			if i != 0 {
-				// Example `func(0` expect either func(0) func(0,
+				// Example: after `func(0` the next token should be `)` or `,`
 				expectedTokens = append(expectedTokens, ParenthesesEndToken)
 			}
 			return nil, &InvalidGrammarError{
@@ -263,9 +263,6 @@ func (p *Parser) ParseExpression() (Node, error) {
 		return nil, &InvalidGrammarError{FoundToken: p.currentToken, ExpectedTokens: nil}
 	}
 	return node, err
-	// "".a
-	// Found . expected end of expression
-	// OR dot notation cannot follow a literal // current
 }
 
 func (p *Parser) parseMathOperator() (MathOperationType, error) {
@@ -479,17 +476,18 @@ func (p *Parser) parseNegationOperation() (Node, error) {
 	return p.parseLeftUnaryExpression([]TokenID{NegationToken}, p.parseValueOrAccessExpression)
 }
 
-var expStartIdentifierTokens = []TokenID{RootAccessToken, CurrentObjectAccessToken, IdentifierToken}
 var literalTokens = []TokenID{StringLiteralToken, IntLiteralToken, BooleanLiteralToken, FloatLiteralToken}
-var validStartTokens = append(expStartIdentifierTokens, literalTokens...)
+var identifierTokens = []TokenID{IdentifierToken, RootAccessToken}
+var validRootValueOrAccessStartTokens = append(literalTokens, identifierTokens...)
+var validValueOrAccessStartTokens = append(validRootValueOrAccessStartTokens, CurrentObjectAccessToken)
 
 // parseValueOrAccessExpression parses a root expression
 func (p *Parser) parseValueOrAccessExpression() (Node, error) {
-	if p.currentToken == nil || !sliceContains(validStartTokens, p.currentToken.TokenID) {
-		return nil, &InvalidGrammarError{FoundToken: p.currentToken, ExpectedTokens: validStartTokens}
+	if p.currentToken == nil || !sliceContains(validValueOrAccessStartTokens, p.currentToken.TokenID) {
+		return nil, &InvalidGrammarError{FoundToken: p.currentToken, ExpectedTokens: validValueOrAccessStartTokens}
 	} else if p.atRoot && p.currentToken.TokenID == CurrentObjectAccessToken {
-		// Can't support @ at root
-		return nil, &InvalidGrammarError{FoundToken: p.currentToken, ExpectedTokens: []TokenID{RootAccessToken, IdentifierToken}}
+		// Can't support @/CurrentObjectAccessToken at root
+		return nil, &InvalidGrammarError{FoundToken: p.currentToken, ExpectedTokens: validRootValueOrAccessStartTokens}
 	}
 	p.atRoot = false // Know when you can reference the current object.
 
