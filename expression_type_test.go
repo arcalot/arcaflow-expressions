@@ -290,7 +290,7 @@ func TestTypeResolution_Error_BinaryMathHeterogeneousLiterals(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = expr.Type(nil, nil, nil)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "types do not match")
+	assert.Contains[string](t, err.Error(), "types do not match")
 }
 
 func TestTypeResolution_UnaryOperation(t *testing.T) {
