@@ -66,7 +66,7 @@ func TestDependencyResolution(t *testing.T) {
 					assert.Equals(t, paths[0].String(), "$.foo.bar")
 				} else {
 					assert.Error(t, err)
-					assert.Contains[string](t, err.Error(), "not supported for object/scope/ref")
+					assert.Contains(t, err.Error(), "not supported for object/scope/ref")
 				}
 			})
 
@@ -183,7 +183,7 @@ func TestFunctionDependencyResolution_error_unknown_func(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = expr.Dependencies(testScope, map[string]schema.Function{}, nil, noKeyOrPastTerminalRequirements)
 	assert.Error(t, err)
-	assert.Contains[string](t, err.Error(), "could not find function")
+	assert.Contains(t, err.Error(), "could not find function")
 }
 
 func TestFunctionDependencyResolution_singleParam(t *testing.T) {
