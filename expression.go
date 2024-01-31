@@ -15,7 +15,7 @@ func New(expressionString string) (Expression, error) {
 	}
 	exprAst, err := parser.ParseExpression()
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse expression: %s (%v)", expressionString, err)
+		return nil, fmt.Errorf("failed to parse expression: %s (%w)", expressionString, err)
 	}
 
 	return &expression{
