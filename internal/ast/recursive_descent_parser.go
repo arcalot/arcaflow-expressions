@@ -121,7 +121,7 @@ func (p *Parser) parseFloatLiteral() (*FloatLiteral, error) {
 	}
 	parsedFloat, err := strconv.ParseFloat(p.currentToken.Value, 64)
 	if err != nil {
-		return nil, err // Should not fail if the parser is set up correctly
+		return nil, err // If this happens, make sure ParseFloat's requirements match the tokenizer's requirements.
 	}
 	literal := &FloatLiteral{FloatValue: parsedFloat}
 	err = p.advanceToken()
@@ -505,8 +505,8 @@ func (p *Parser) parseValueOrAccessExpression() (Node, error) {
 	case BooleanLiteralToken:
 		literalNode, err = p.parseBooleanLiteral()
 	default:
-		// Not a literal, or a literal case is missing in the switch
-		// So if it gets here it's an identifier. That can lead to a chain or function call.
+		// If it enters the default case, we assume it's an identifier.
+		// That means it's one of the tokens in validValueOrAccessStartTokens that isn't in an explicit switch case.
 		return p.parseIdentifierOrFunction()
 	}
 	// Literal case
@@ -520,7 +520,7 @@ func (p *Parser) parseValueOrAccessExpression() (Node, error) {
 	switch p.currentToken.TokenID {
 	// These are all access start tokens, which cannot follow a literal.
 	case ParenthesesStartToken:
-		return nil, fmt.Errorf("function call must start with an identifier; got %q after %q", p.currentToken.Value, literalNode.String())
+		return nil, fmt.Errorf("an opening parentheses cannot follow a literal; got %q after %q", p.currentToken.Value, literalNode.String())
 	case DotObjectAccessToken:
 		return nil, fmt.Errorf("dot notation cannot follow a literal; got %q after %q", p.currentToken.Value, literalNode.String())
 	case BracketAccessDelimiterStartToken:

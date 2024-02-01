@@ -106,7 +106,7 @@ type tokenPattern struct {
 var tokenPatterns = []tokenPattern{
 	{BooleanLiteralToken, regexp.MustCompile(`^true|false$`)},              // true or false. Note: This needs to be above IdentifierToken
 	{FloatLiteralToken, regexp.MustCompile(`^\d+\.\d*(?:[eE][+-]?\d+)?$`)}, // Like an integer, but with a period and digits after.
-	{IntLiteralToken, regexp.MustCompile(`^(?:0$|[1-9]\d*)$`)},             // Note: numbers that start with 0 are identifiers.
+	{IntLiteralToken, regexp.MustCompile(`^(?:0|[1-9]\d*)$`)},              // Note: numbers that start with 0 are identifiers.
 	{IdentifierToken, regexp.MustCompile(`^\w+$`)},                         // Any valid object name
 	{StringLiteralToken, regexp.MustCompile(`^(?:".*"|'.*')$`)},            // "string example"
 	{BracketAccessDelimiterStartToken, regexp.MustCompile(`^\[$`)},         // the [ in map["key"]

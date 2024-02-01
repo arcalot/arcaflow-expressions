@@ -139,7 +139,6 @@ func (c *dependencyContext) binaryOperationDependencies(
 	case ast.Add:
 		// Add or concatenate
 		err = validateValidBinaryOpTypes(
-			"add/concatenate",
 			node,
 			leftResult.resolvedType.TypeID(),
 			rightResult.resolvedType.TypeID(),
@@ -149,7 +148,6 @@ func (c *dependencyContext) binaryOperationDependencies(
 	case ast.Subtract, ast.Multiply, ast.Divide, ast.Modulus, ast.Power:
 		// Math. Same as type going in. Plus validate that it's numeric.
 		err = validateValidBinaryOpTypes(
-			"math",
 			node,
 			leftResult.resolvedType.TypeID(),
 			rightResult.resolvedType.TypeID(),
@@ -159,7 +157,6 @@ func (c *dependencyContext) binaryOperationDependencies(
 	case ast.And, ast.Or:
 		// Boolean operations. Bool in and out.
 		err = validateValidBinaryOpTypes(
-			"boolean",
 			node,
 			leftResult.resolvedType.TypeID(),
 			rightResult.resolvedType.TypeID(),
@@ -169,7 +166,6 @@ func (c *dependencyContext) binaryOperationDependencies(
 	case ast.GreaterThan, ast.LessThan, ast.GreaterThanEqualTo, ast.LessThanEqualTo:
 		// Inequality. Int, float, or string in; bool out.
 		err = validateValidBinaryOpTypes(
-			"inequality",
 			node,
 			leftResult.resolvedType.TypeID(),
 			rightResult.resolvedType.TypeID(),
@@ -179,7 +175,6 @@ func (c *dependencyContext) binaryOperationDependencies(
 	case ast.EqualTo, ast.NotEqualTo:
 		// Equality comparison. Any supported type in. Bool out.
 		err = validateValidBinaryOpTypes(
-			"equality",
 			node,
 			leftResult.resolvedType.TypeID(),
 			rightResult.resolvedType.TypeID(),
@@ -204,7 +199,6 @@ func (c *dependencyContext) binaryOperationDependencies(
 }
 
 func validateValidBinaryOpTypes(
-	operationName string,
 	node *ast.BinaryOperation,
 	leftType schema.TypeID,
 	rightType schema.TypeID,
@@ -213,13 +207,13 @@ func validateValidBinaryOpTypes(
 	// First validate left and right types are within the expected types.
 	leftIsValid := slices.Contains(expectedTypes, leftType)
 	if !leftIsValid {
-		return fmt.Errorf("invalid type %q from left expression %q for %s binary operation %q; expected one of %q",
-			leftType, node.LeftNode.String(), operationName, node.Operation, expectedTypes)
+		return fmt.Errorf("invalid type %q from left expression %q for binary operation %q; expected one of %q",
+			leftType, node.LeftNode.String(), node.Operation, expectedTypes)
 	}
 	rightIsValid := slices.Contains(expectedTypes, rightType)
 	if !rightIsValid {
-		return fmt.Errorf("invalid type %q from right expression %q for %s binary operation %q; expected one of %q",
-			rightType, node.RightNode.String(), operationName, node.Operation, expectedTypes)
+		return fmt.Errorf("invalid type %q from right expression %q for binary operation %q; expected one of %q",
+			rightType, node.RightNode.String(), node.Operation, expectedTypes)
 	}
 	// Next, validate that left and right types match
 	if leftType != rightType {

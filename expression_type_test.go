@@ -283,9 +283,8 @@ func TestTypeResolution_BinaryMathHomogeneousFloatLiterals(t *testing.T) {
 	assert.Equals[schema.Type](t, typeResult, schema.NewFloatSchema(nil, nil, nil))
 }
 
-func TestTypeResolution_Error_BinaryMathHeterogeneousLiterals(t *testing.T) {
-	// The binary operation type-checker checks both the left and the right
-	// But there are multiple valid types, so validate that it checks that they match.
+func TestTypeResolution_Error_BinaryHeterogeneousLiterals(t *testing.T) {
+	// This is designed to hit the type checker code, with an error from a mismatch in type.
 	expr, err := expressions.New("5 + 5.0")
 	assert.NoError(t, err)
 	_, err = expr.Type(nil, nil, nil)

@@ -397,6 +397,7 @@ func TestSubExpression(t *testing.T) {
 }
 
 func TestParseExpression_Error_BracketAfterLiteral(t *testing.T) {
+	// Test error message for bracket access after literal
 	expression := "0[0]"
 	p, err := InitParser(expression, t.Name())
 
@@ -408,7 +409,8 @@ func TestParseExpression_Error_BracketAfterLiteral(t *testing.T) {
 }
 
 func TestParseExpression_Error_DotAfterLiteral(t *testing.T) {
-	expression := "0 .a"
+	// Test error message for dot notation after literal.
+	expression := "0 .a" // The space is needed for the tokens to be separated for the behavior we're testing.
 	p, err := InitParser(expression, t.Name())
 
 	assert.NoError(t, err)
@@ -419,6 +421,7 @@ func TestParseExpression_Error_DotAfterLiteral(t *testing.T) {
 }
 
 func TestParseExpression_Error_ParenthesesAfterLiteral(t *testing.T) {
+	// Test the error message for function call after literal.
 	expression := "0(0 + 0)"
 	p, err := InitParser(expression, t.Name())
 
@@ -427,7 +430,7 @@ func TestParseExpression_Error_ParenthesesAfterLiteral(t *testing.T) {
 	parsedResult, err := p.ParseExpression()
 	assert.Error(t, err)
 	assert.Nil(t, parsedResult)
-	assert.Contains(t, err.Error(), "function call must start with an identifier")
+	assert.Contains(t, err.Error(), "an opening parentheses cannot follow a literal")
 }
 
 func TestEmptyFunctionExpression(t *testing.T) {
@@ -1206,9 +1209,26 @@ func TestParseArgs_badSeparator(t *testing.T) {
 	assert.Equals(t, grammarErr.ExpectedTokens, []TokenID{ListSeparatorToken, ParenthesesEndToken})
 }
 
-func TestParseArgs_badFirstToken(t *testing.T) {
+func TestParseArgs_endedAfterSeparator(t *testing.T) {
 	// This end will test a missing close parentheses.
 	// This will create a nil value for nextToken that must be handled properly.
+	expression := `("",`
+	p, err := InitParser(expression, t.Name())
+	assert.NoError(t, err)
+	err = p.advanceToken()
+	assert.NoError(t, err)
+	_, err = p.parseArgs()
+	assert.Error(t, err)
+	var grammarErr *InvalidGrammarError
+	ok := errors.As(err, &grammarErr)
+	if !ok {
+		t.Fatalf("Returned error is not InvalidGrammarError")
+	}
+	assert.Equals(t, grammarErr.ExpectedTokens, []TokenID{ParenthesesEndToken})
+}
+
+func TestParseArgs_badFirstToken(t *testing.T) {
+	// This end will test a missing open parentheses.
 	expression := `1`
 	p, err := InitParser(expression, t.Name())
 	assert.NoError(t, err)
