@@ -52,7 +52,7 @@ const (
 	// WildcardToken represents a wildcard token '*'.
 	WildcardToken TokenID = "wildcard"
 	// ListSeparatorToken represents a comma in a parameter list
-	ListSeparatorToken TokenID = "list-separator"
+	ListSeparatorToken TokenID = "list-separator" //nolint:gosec // not a security credential
 	// UnknownToken is a placeholder for when there was an error in the token.
 	UnknownToken TokenID = "error"
 )

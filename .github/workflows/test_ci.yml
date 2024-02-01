@@ -1,6 +1,8 @@
 name: Golang Test
 on:
   push:
+    branches:
+      - main
   pull_request:
 
 jobs:
@@ -13,8 +15,7 @@ jobs:
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@3a919529898de77ec3da873e3063ca4b10e7f5cc # v3
         with:
-          # Hard-coding version due to this bug: https://github.com/golangci/golangci-lint-action/issues/535
-          version: v1.51.2
+          version: v1.55.2
   test:
     name: go test
     runs-on: ubuntu-latest

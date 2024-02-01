@@ -39,7 +39,7 @@ func (c evaluateContext) evaluate(node ast.Node, data any) (any, error) {
 	}
 }
 
-func (c evaluateContext) evaluateFuncCall(node *ast.FunctionCall, data any) (any, error) {
+func (c evaluateContext) evaluateFuncCall(node *ast.FunctionCall, data any) (any, error) { //nolint:unparam
 	funcID := node.FuncIdentifier
 	functionSchema, found := c.functions[funcID.String()]
 	if !found {
