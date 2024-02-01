@@ -549,7 +549,7 @@ func TestDependencyResolution_TestMixedMathAndFunc(t *testing.T) {
 }
 
 func TestDependencyResolution_TestMixedOperations(t *testing.T) {
-	// Test int and float math, mixed with function.
+	// Test different types of operations that take different types.
 	intInFunc, err := schema.NewCallableFunction(
 		"giveFloat",
 		[]schema.Type{},
