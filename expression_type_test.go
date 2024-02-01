@@ -302,7 +302,7 @@ func TestTypeResolution_UnaryOperation(t *testing.T) {
 }
 
 func TestTypeResolution_TestMixedMathAndFunc(t *testing.T) {
-	// Test int and float math, mixed with function.
+	// Testing the combination of a float and a function.
 	intInFunc, err := schema.NewCallableFunction(
 		"intToFloat",
 		[]schema.Type{schema.NewIntSchema(nil, nil, nil)},
@@ -333,7 +333,7 @@ func TestTypeResolution_Error_NonBoolType(t *testing.T) {
 }
 
 func TestTypeResolution_TestMixedOperations(t *testing.T) {
-	// Test int and float math, mixed with function.
+	// Mixture of operations producing the expected type.
 	intInFunc, err := schema.NewCallableFunction(
 		"giveFloat",
 		[]schema.Type{},

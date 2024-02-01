@@ -526,7 +526,7 @@ func TestDependencyResolution_TestBooleanOperationReferences(t *testing.T) {
 }
 
 func TestDependencyResolution_TestMixedMathAndFunc(t *testing.T) {
-	// Test indirect int and float math by casting the int to a float in a function.
+	// Test dependencies properly propagated from a function through an operation.
 	intInFunc, err := schema.NewCallableFunction(
 		"intToFloat",
 		[]schema.Type{schema.NewIntSchema(nil, nil, nil)},

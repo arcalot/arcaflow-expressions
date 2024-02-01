@@ -121,7 +121,8 @@ func (p *Parser) parseFloatLiteral() (*FloatLiteral, error) {
 	}
 	parsedFloat, err := strconv.ParseFloat(p.currentToken.Value, 64)
 	if err != nil {
-		return nil, err // If this happens, make sure ParseFloat's requirements match the tokenizer's requirements.
+		// If this happens, make sure ParseFloat's requirements match the tokenizer's requirements.
+		return nil, fmt.Errorf("bug: could not parse float %s (%w)", p.currentToken.Value, err)
 	}
 	literal := &FloatLiteral{FloatValue: parsedFloat}
 	err = p.advanceToken()
@@ -147,7 +148,17 @@ func (p *Parser) parseBooleanLiteral() (*BooleanLiteral, error) {
 	return literal, nil
 }
 
-var escapeReplacer = strings.NewReplacer(`\\`, `\`, `\t`, "\t", `\n`, "\n", `\r`, "\r", `\b`, "\b", `\"`, `"`)
+// Common escape characters
+var escapeReplacer = strings.NewReplacer(
+	`\\`, `\`,
+	`\t`, "\t",
+	`\n`, "\n",
+	`\r`, "\r",
+	`\b`, "\b",
+	`\"`, `"`,
+	`\'`, `'`,
+	`\0`, "\000",
+)
 
 func (p *Parser) parseStringLiteral() (*StringLiteral, error) {
 	// The literal token includes the "", so trim the ends off.
@@ -411,8 +422,16 @@ func (p *Parser) parseLeftUnaryExpression(supportedOperators []TokenID, childNod
 }
 
 // ORDER OF OPERATIONS
-// negation Parentheses Exponent Multiplication&Division Addition&Subtraction Comparisons not and or
-// The higher-precedence ones should be deepest in the call tree. So logical or should be called first.
+// - negation
+// - Parentheses
+// - Exponent
+// - Multiplication and Division
+// - Addition Subtraction
+// - Comparisons
+// - not
+// - and
+// - or
+// The higher-precedence ones should be deepest in the call tree. So logical `or` should be called first.
 // For more details, see the grammar at the top of this file.
 
 func (p *Parser) parseRootExpression() (Node, error) {
@@ -505,8 +524,7 @@ func (p *Parser) parseValueOrAccessExpression() (Node, error) {
 	case BooleanLiteralToken:
 		literalNode, err = p.parseBooleanLiteral()
 	default:
-		// If it enters the default case, we assume it's an identifier.
-		// That means it's one of the tokens in validValueOrAccessStartTokens that isn't in an explicit switch case.
+		// We have a valid token that isn't a literal.
 		return p.parseIdentifierOrFunction()
 	}
 	// Literal case
@@ -514,17 +532,16 @@ func (p *Parser) parseValueOrAccessExpression() (Node, error) {
 		return nil, err
 	}
 	// Lookahead validation for nothing incorrect following the literal for better error messages.
-	if p.currentToken == nil { // Nothing after, so likely valid.
-		return literalNode, nil
-	}
-	switch p.currentToken.TokenID {
-	// These are all access start tokens, which cannot follow a literal.
-	case ParenthesesStartToken:
-		return nil, fmt.Errorf("an opening parentheses cannot follow a literal; got %q after %q", p.currentToken.Value, literalNode.String())
-	case DotObjectAccessToken:
-		return nil, fmt.Errorf("dot notation cannot follow a literal; got %q after %q", p.currentToken.Value, literalNode.String())
-	case BracketAccessDelimiterStartToken:
-		return nil, fmt.Errorf("bracket access cannot follow a literal; got %q after %q", p.currentToken.Value, literalNode.String())
+	if p.currentToken != nil { // Nothing after, so likely valid.
+		switch p.currentToken.TokenID {
+		// These are all access start tokens which cannot follow a literal.
+		case ParenthesesStartToken:
+			return nil, fmt.Errorf("an opening parentheses cannot follow a literal; got %q after %q", p.currentToken.Value, literalNode.String())
+		case DotObjectAccessToken:
+			return nil, fmt.Errorf("dot notation cannot follow a literal; got %q after %q", p.currentToken.Value, literalNode.String())
+		case BracketAccessDelimiterStartToken:
+			return nil, fmt.Errorf("bracket access cannot follow a literal; got %q after %q", p.currentToken.Value, literalNode.String())
+		}
 	}
 	return literalNode, nil
 }

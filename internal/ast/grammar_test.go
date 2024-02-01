@@ -1174,8 +1174,7 @@ func TestParseArgs_badStart(t *testing.T) {
 }
 
 func TestParseArgs_badEnd2(t *testing.T) {
-	// This end will test a missing close parentheses.
-	// This will create a nil value for nextToken that must be handled properly.
+	// An incomplete argument list with a missing close parentheses.
 	expression := `(""`
 	p, err := InitParser(expression, t.Name())
 	assert.NoError(t, err)
@@ -1192,8 +1191,7 @@ func TestParseArgs_badEnd2(t *testing.T) {
 }
 
 func TestParseArgs_badSeparator(t *testing.T) {
-	// This end will test a missing close parentheses.
-	// This will create a nil value for nextToken that must be handled properly.
+	// Testing a bad argument list
 	expression := `(""1`
 	p, err := InitParser(expression, t.Name())
 	assert.NoError(t, err)
@@ -1210,8 +1208,7 @@ func TestParseArgs_badSeparator(t *testing.T) {
 }
 
 func TestParseArgs_endedAfterSeparator(t *testing.T) {
-	// This end will test a missing close parentheses.
-	// This will create a nil value for nextToken that must be handled properly.
+	// Test separator in place of close parentheses
 	expression := `("",`
 	p, err := InitParser(expression, t.Name())
 	assert.NoError(t, err)
@@ -1228,7 +1225,8 @@ func TestParseArgs_endedAfterSeparator(t *testing.T) {
 }
 
 func TestParseArgs_badFirstToken(t *testing.T) {
-	// This end will test a missing open parentheses.
+	// Test a missing open parentheses.
+	// This is testing an edge-case that should not be hit if designed correctly.
 	expression := `1`
 	p, err := InitParser(expression, t.Name())
 	assert.NoError(t, err)
@@ -1245,7 +1243,7 @@ func TestParseArgs_badFirstToken(t *testing.T) {
 }
 
 func TestParseString_EscapedStrings(t *testing.T) {
-	expression := `"a\"b" "a\tb" "a\\b" "a\bb" "a\nb" "a\\nb"`
+	expression := `"a\"b" "a\tb" "a\\b" "a\bb" "a\nb" "a\\nb" '\''`
 	p, err := InitParser(expression, t.Name())
 	assert.NoError(t, err)
 	err = p.advanceToken()
@@ -1268,4 +1266,7 @@ func TestParseString_EscapedStrings(t *testing.T) {
 	result, err = p.parseStringLiteral()
 	assert.NoError(t, err)
 	assert.Equals(t, result.StrValue, "a\\nb")
+	result, err = p.parseStringLiteral()
+	assert.NoError(t, err)
+	assert.Equals(t, result.StrValue, "'")
 }
