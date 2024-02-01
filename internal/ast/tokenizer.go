@@ -56,7 +56,7 @@ const (
 	// AsteriskToken represents a wildcard/multiplication token '*'.
 	AsteriskToken TokenID = "asterisk"
 	// ListSeparatorToken represents a comma in a parameter list
-	ListSeparatorToken TokenID = "list-separator"
+	ListSeparatorToken TokenID = "list-separator" //nolint:gosec // not a security credential
 	// DivideToken represents the forward slash used to specify division.
 	DivideToken TokenID = "divide"
 	// GreaterThanToken represents a > symbol.
