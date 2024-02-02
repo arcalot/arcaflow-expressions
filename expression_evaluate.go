@@ -3,6 +3,7 @@ package expressions
 import (
 	"fmt"
 	"go.flow.arcalot.io/pluginsdk/schema"
+	"math"
 	"reflect"
 
 	"go.flow.arcalot.io/expressions/internal/ast"
@@ -33,13 +34,163 @@ func (c evaluateContext) evaluate(node ast.Node, data any) (any, error) {
 	case *ast.Identifier:
 		return c.evaluateIdentifier(n, data)
 	case *ast.FunctionCall:
-		return c.evaluateFuncCall(n, data)
+		return c.evaluateFuncCall(n)
+	case *ast.BinaryOperation:
+		return c.evaluateBinaryOperation(n)
+	case *ast.UnaryOperation:
+		return c.evaluateUnaryOperation(n)
 	default:
 		return nil, fmt.Errorf("unsupported node type: %T", n)
 	}
 }
 
-func (c evaluateContext) evaluateFuncCall(node *ast.FunctionCall, data any) (any, error) { //nolint:unparam
+type SupportedNumber interface {
+	int64 | float64
+}
+
+func evalNumericalOperation[T SupportedNumber](a, b T, op ast.MathOperationType) (any, error) {
+	switch op {
+	case ast.Add:
+		return a + b, nil
+	case ast.Subtract:
+		return a - b, nil
+	case ast.Multiply:
+		return a * b, nil
+	case ast.Divide:
+		return a / b, nil
+	case ast.Modulus:
+		switch any(a).(type) {
+		case int64:
+			return int64(a) % int64(b), nil
+		case float64:
+			return math.Mod(float64(a), float64(b)), nil
+		}
+		return nil, fmt.Errorf("unsupported type for modulus: %T", a)
+	case ast.Power:
+		return T(math.Pow(float64(a), float64(b))), nil
+	case ast.EqualTo:
+		return a == b, nil
+	case ast.NotEqualTo:
+		return a != b, nil
+	case ast.GreaterThan:
+		return a > b, nil
+	case ast.LessThan:
+		return a < b, nil
+	case ast.GreaterThanEqualTo:
+		return a >= b, nil
+	case ast.LessThanEqualTo:
+		return a <= b, nil
+	case ast.And, ast.Or:
+		return nil, fmt.Errorf("attempted logical operation %s on numeric input %T", op, a)
+	case ast.Invalid:
+		panic(fmt.Errorf("invalid operation encountered evaluating numerical operation; this is likely due to a bug in the parser"))
+	default:
+		panic(fmt.Errorf("numeric eval missing case for logical operation %s", op))
+	}
+}
+
+func evalBooleanOperation(a, b bool, op ast.MathOperationType) (any, error) {
+	switch op {
+	case ast.EqualTo:
+		return a == b, nil
+	case ast.NotEqualTo:
+		return a != b, nil
+	case ast.And:
+		return a && b, nil
+	case ast.Or:
+		return a || b, nil
+	case ast.Power, ast.Modulus, ast.Divide, ast.Multiply, ast.Subtract, ast.Add,
+		ast.GreaterThan, ast.LessThan, ast.GreaterThanEqualTo, ast.LessThanEqualTo:
+		return nil, fmt.Errorf("attempted to perform invalid operation '%s' on boolean", op)
+	case ast.Invalid:
+		panic(fmt.Errorf("invalid operation encountered evaluating boolean operation; this is likely due to a bug in the parser"))
+	default:
+		panic(fmt.Errorf("boolean eval missing case for logical operation %s", op))
+	}
+}
+
+func evalStringOperation(a, b string, op ast.MathOperationType) (any, error) {
+	switch op {
+	case ast.Add:
+		// Concatenate
+		return a + b, nil
+	case ast.EqualTo:
+		return a == b, nil
+	case ast.NotEqualTo:
+		return a != b, nil
+	case ast.GreaterThan:
+		return a > b, nil
+	case ast.LessThan:
+		return a < b, nil
+	case ast.GreaterThanEqualTo:
+		return a >= b, nil
+	case ast.LessThanEqualTo:
+		return a <= b, nil
+	case ast.Subtract, ast.Multiply, ast.Divide, ast.Modulus, ast.Power, ast.And, ast.Or:
+		return nil, fmt.Errorf("string operations do not support operator '%s'", op)
+	case ast.Invalid:
+		panic(fmt.Errorf("invalid operation encountered evaluating string operation; this is likely due to a bug in the parser"))
+	default:
+		panic(fmt.Errorf("string eval missing case for logical operation %s", op))
+	}
+}
+
+func (c evaluateContext) evaluateBinaryOperation(node *ast.BinaryOperation) (any, error) {
+	leftEval, err := c.evaluate(node.Left(), c.rootData)
+	if err != nil {
+		return nil, err
+	}
+	rightEval, err := c.evaluate(node.Right(), c.rootData)
+	if err != nil {
+		return nil, err
+	}
+	rightType := reflect.TypeOf(rightEval)
+	leftType := reflect.TypeOf(leftEval)
+	if rightType != leftType {
+		return nil, fmt.Errorf("left type '%s' and right type '%s' of binary operation '%s' do not match",
+			leftType, rightType, node.Operation)
+	}
+
+	switch left := leftEval.(type) {
+	case int64:
+		return evalNumericalOperation(left, rightEval.(int64), node.Operation)
+	case float64:
+		return evalNumericalOperation(left, rightEval.(float64), node.Operation)
+	case string:
+		return evalStringOperation(left, rightEval.(string), node.Operation)
+	case bool:
+		return evalBooleanOperation(left, rightEval.(bool), node.Operation)
+	default:
+		return nil, fmt.Errorf("unsupported type to perform binary operation on: %T", left)
+	}
+}
+
+func (c evaluateContext) evaluateUnaryOperation(node *ast.UnaryOperation) (any, error) {
+	rightEval, err := c.evaluate(node.RightNode, c.rootData)
+	if err != nil {
+		return nil, err
+	}
+	if node.LeftOperation == ast.Subtract {
+		switch right := rightEval.(type) {
+		case int64:
+			return -right, nil
+		case float64:
+			return -right, nil
+		default:
+			return nil, fmt.Errorf("unsupported type for arithmetic negation: %T; expected 64-bit int or float", right)
+		}
+	} else if node.LeftOperation == ast.Not {
+		booleanResult, isBool := rightEval.(bool)
+		if !isBool {
+			return nil, fmt.Errorf("unsupported type for boolean complement: %T; expected boolean", rightEval)
+		}
+		return !booleanResult, nil
+	} else {
+		return nil, fmt.Errorf("only unary operators '-' and '!' are currently supported; got '%s'", node.LeftOperation)
+	}
+}
+
+func (c evaluateContext) evaluateFuncCall(node *ast.FunctionCall) (any, error) {
 	funcID := node.FuncIdentifier
 	functionSchema, found := c.functions[funcID.String()]
 	if !found {
@@ -54,7 +205,7 @@ func (c evaluateContext) evaluateFuncCall(node *ast.FunctionCall, data any) (any
 	gotArgs := len(evaluatedArgs)
 	if gotArgs != expectedArgs {
 		return nil, fmt.Errorf(
-			"function '%s' called with incorrect number of arguments. Expected %d, got %d",
+			"function '%s' called with incorrect number of arguments; expected %d, got %d",
 			funcID, expectedArgs, gotArgs)
 	}
 	return functionSchema.Call(evaluatedArgs)

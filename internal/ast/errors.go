@@ -22,11 +22,13 @@ type InvalidGrammarError struct {
 }
 
 func (e *InvalidGrammarError) Error() string {
-	errorMsg := fmt.Sprintf("Token \"%s\" of ID %s placed in invalid configuration in %s at line %d:%d.",
+	errorMsg := fmt.Sprintf("Token %q of ID %q placed in invalid configuration in %q at line %d:%d.",
 		e.FoundToken.Value, e.FoundToken.TokenID, e.FoundToken.Filename, e.FoundToken.Line, e.FoundToken.Column)
 	switch {
-	case e.ExpectedTokens == nil || len(e.ExpectedTokens) == 0:
+	case e.ExpectedTokens == nil:
 		errorMsg += " Expected end of expression."
+	case len(e.ExpectedTokens) == 0:
+		errorMsg += " Expected any token."
 	case len(e.ExpectedTokens) == 1:
 		errorMsg += fmt.Sprintf(" Expected token \"%v\"", e.ExpectedTokens[0])
 	default:

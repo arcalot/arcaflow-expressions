@@ -212,3 +212,225 @@ func TestFunctionTypeResolution_advancedDynamicTyping(t *testing.T) {
 		schema.NewStringSchema(nil, nil, nil),
 	)
 }
+
+func TestTypeResolution_BinaryMathHomogeneousIntLiterals(t *testing.T) {
+	// Two ints added should give an int
+	expr, err := expressions.New("5 + 5")
+	assert.NoError(t, err)
+	typeResult, err := expr.Type(nil, nil, nil)
+	assert.NoError(t, err)
+	assert.Equals[schema.Type](t, typeResult, schema.NewIntSchema(nil, nil, nil))
+	expr, err = expressions.New("5 * 5")
+	assert.NoError(t, err)
+	typeResult, err = expr.Type(nil, nil, nil)
+	assert.NoError(t, err)
+	assert.Equals[schema.Type](t, typeResult, schema.NewIntSchema(nil, nil, nil))
+}
+
+func TestTypeResolution_BinaryConcatenateStrings(t *testing.T) {
+	expr, err := expressions.New(`"5" + "5"`)
+	assert.NoError(t, err)
+	typeResult, err := expr.Type(nil, nil, nil)
+	assert.NoError(t, err)
+	assert.Equals[schema.Type](t, typeResult, schema.NewStringSchema(nil, nil, nil))
+}
+
+func TestTypeResolution_BinaryMathHomogeneousIntReference(t *testing.T) {
+	// Two ints added should give an int. One int is a reference.
+	expr, err := expressions.New("5 + $.simple_int")
+	assert.NoError(t, err)
+	typeResult, err := expr.Type(testScope, nil, nil)
+	assert.NoError(t, err)
+	assert.Equals[schema.Type](t, typeResult, schema.NewIntSchema(nil, nil, nil))
+	expr, err = expressions.New("$.simple_int + 5")
+	assert.NoError(t, err)
+	typeResult, err = expr.Type(testScope, nil, nil)
+	assert.NoError(t, err)
+	assert.Equals[schema.Type](t, typeResult, schema.NewIntSchema(nil, nil, nil))
+}
+
+func TestTypeResolution_BinaryMathHomogeneousFloatLiterals(t *testing.T) {
+	// Two floats added, subtracted, multiplied, and divided should give floats
+	expr, err := expressions.New("5.0 / 5.0")
+	assert.NoError(t, err)
+	typeResult, err := expr.Type(nil, nil, nil)
+	assert.NoError(t, err)
+	assert.Equals[schema.Type](t, typeResult, schema.NewFloatSchema(nil, nil, nil))
+	expr, err = expressions.New("5.0 + 5.0")
+	assert.NoError(t, err)
+	typeResult, err = expr.Type(nil, nil, nil)
+	assert.NoError(t, err)
+	assert.Equals[schema.Type](t, typeResult, schema.NewFloatSchema(nil, nil, nil))
+	expr, err = expressions.New("5.0 - 5.0")
+	assert.NoError(t, err)
+	typeResult, err = expr.Type(nil, nil, nil)
+	assert.NoError(t, err)
+	assert.Equals[schema.Type](t, typeResult, schema.NewFloatSchema(nil, nil, nil))
+	expr, err = expressions.New("5.0 * 5.0")
+	assert.NoError(t, err)
+	typeResult, err = expr.Type(nil, nil, nil)
+	assert.NoError(t, err)
+	assert.Equals[schema.Type](t, typeResult, schema.NewFloatSchema(nil, nil, nil))
+	expr, err = expressions.New("5.0 % 5.0")
+	assert.NoError(t, err)
+	typeResult, err = expr.Type(nil, nil, nil)
+	assert.NoError(t, err)
+	assert.Equals[schema.Type](t, typeResult, schema.NewFloatSchema(nil, nil, nil))
+	expr, err = expressions.New("5.0 ^ 5.0")
+	assert.NoError(t, err)
+	typeResult, err = expr.Type(nil, nil, nil)
+	assert.NoError(t, err)
+	assert.Equals[schema.Type](t, typeResult, schema.NewFloatSchema(nil, nil, nil))
+}
+
+func TestTypeResolution_Error_BinaryHeterogeneousLiterals(t *testing.T) {
+	// This is designed to hit the type checker code, with an error from a mismatch in type.
+	expr, err := expressions.New("5 + 5.0")
+	assert.NoError(t, err)
+	_, err = expr.Type(nil, nil, nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "types do not match")
+}
+
+func TestTypeResolution_UnaryOperation(t *testing.T) {
+	// Tests that the unary operator properly passes the type upwards.
+	expr, err := expressions.New("-5")
+	assert.NoError(t, err)
+	typeResult, err := expr.Type(nil, nil, nil)
+	assert.NoError(t, err)
+	assert.Equals[schema.Type](t, typeResult, schema.NewIntSchema(nil, nil, nil))
+}
+
+func TestTypeResolution_TestMixedMathAndFunc(t *testing.T) {
+	// Testing the combination of a float and a function.
+	intInFunc, err := schema.NewCallableFunction(
+		"intToFloat",
+		[]schema.Type{schema.NewIntSchema(nil, nil, nil)},
+		schema.NewFloatSchema(nil, nil, nil),
+		false,
+		nil,
+		func(a int64) float64 {
+			return float64(a)
+		},
+	)
+	assert.NoError(t, err)
+	funcMap := map[string]schema.Function{"intToFloat": intInFunc}
+
+	expr, err := expressions.New("5.0 + intToFloat($.simple_int)")
+	assert.NoError(t, err)
+	typeResult, err := expr.Type(testScope, funcMap, nil)
+	assert.NoError(t, err)
+	assert.Equals[schema.Type](t, typeResult, schema.NewFloatSchema(nil, nil, nil))
+}
+
+func TestTypeResolution_Error_NonBoolType(t *testing.T) {
+	// Non-bool type for operation that requires boolean types
+	expr, err := expressions.New(`0 && 1`)
+	assert.NoError(t, err)
+	_, err = expr.Type(testScope, nil, nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid type")
+}
+
+func TestTypeResolution_TestMixedOperations(t *testing.T) {
+	// Mixture of operations producing the expected type.
+	intInFunc, err := schema.NewCallableFunction(
+		"giveFloat",
+		[]schema.Type{},
+		schema.NewFloatSchema(nil, nil, nil),
+		false,
+		nil,
+		func() float64 {
+			return 5.5
+		},
+	)
+	assert.NoError(t, err)
+	funcMap := map[string]schema.Function{"giveFloat": intInFunc}
+
+	expr, err := expressions.New("1.0 == (5.0 / giveFloat()) && !true")
+	assert.NoError(t, err)
+	typeResult, err := expr.Type(testScope, funcMap, nil)
+	assert.NoError(t, err)
+	assert.Equals[schema.Type](t, typeResult, schema.NewBoolSchema())
+}
+
+func TestDependencyResolution_Error_TestSecondTypeIncorrect(t *testing.T) {
+	// The binary operation type-checker checks both the left and the right
+	// Validate that the right type is correctly validated.
+	expr, err := expressions.New(`5 + true`)
+	assert.NoError(t, err)
+	_, err = expr.Type(testScope, nil, nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid type")
+	assert.Contains(t, err.Error(), "right expression")
+}
+
+func TestDependencyResolution_Error_TestInvalidTypeOnBoolean(t *testing.T) {
+	// Tests invalid type for relational operator
+	expr, err := expressions.New("true > false")
+	assert.NoError(t, err)
+	_, err = expr.Type(testScope, nil, nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid type")
+}
+
+func TestDependencyResolution_TestSizeComparison(t *testing.T) {
+	expr, err := expressions.New("5 > 6")
+	assert.NoError(t, err)
+	typeResult, err := expr.Type(testScope, nil, nil)
+	assert.NoError(t, err)
+	assert.Equals[schema.Type](t, typeResult, schema.NewBoolSchema())
+}
+
+func TestDependencyResolution_Error_TestInvalidNot(t *testing.T) {
+	// 'not' expects boolean
+	expr, err := expressions.New("!5")
+	assert.NoError(t, err)
+	_, err = expr.Type(testScope, nil, nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "non-boolean type")
+}
+
+func TestDependencyResolution_Error_TestInvalidNegation(t *testing.T) {
+	// 'not' expects boolean
+	expr, err := expressions.New("-true")
+	assert.NoError(t, err)
+	_, err = expr.Type(testScope, nil, nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "non-numeric type")
+}
+
+func TestDependencyResolution_Error_TestComparingScopes(t *testing.T) {
+	// scopes cannot be compared
+	expr, err := expressions.New("$ > $")
+	assert.NoError(t, err)
+	_, err = expr.Type(testScope, nil, nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid type")
+}
+
+func TestDependencyResolution_Error_TestAddingScopes(t *testing.T) {
+	// scopes cannot be added
+	expr, err := expressions.New("$ + $")
+	assert.NoError(t, err)
+	_, err = expr.Type(testScope, nil, nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid type")
+}
+
+func TestDependencyResolution_Error_TestAddingMaps(t *testing.T) {
+	// maps cannot be added
+	expr, err := expressions.New("$.faz + $.faz")
+	assert.NoError(t, err)
+	_, err = expr.Type(testScope, nil, nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid type")
+}
+func TestDependencyResolution_Error_TestAddingLists(t *testing.T) {
+	// lists cannot be added
+	expr, err := expressions.New("$.int_list + $.int_list")
+	assert.NoError(t, err)
+	_, err = expr.Type(testScope, nil, nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid type")
+}

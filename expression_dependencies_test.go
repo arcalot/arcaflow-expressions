@@ -419,3 +419,153 @@ func TestFunctionDependencyResolution_dynamicTyping(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported data type")
 }
+
+func TestDependencyResolution_MathHomogeneousLiterals(t *testing.T) {
+	// Test simple literal integer math, same type
+	expr, err := expressions.New("5 + 5")
+	assert.NoError(t, err)
+	pathWithExtra, err := expr.Dependencies(nil, nil, nil, fullDataRequirements)
+	assert.NoError(t, err)
+	assert.Equals(t, len(pathWithExtra), 0)
+}
+
+func TestDependencyResolution_MathHomogeneousReference(t *testing.T) {
+	// Test simple reference integer math, same type
+	expr, err := expressions.New("5 + $.simple_int")
+	assert.NoError(t, err)
+	paths, err := expr.Dependencies(testScope, nil, nil, fullDataRequirements)
+	assert.NoError(t, err)
+	assert.Equals(t, len(paths), 1)
+	assert.Equals(t, paths[0].String(), "$.simple_int")
+	// Swapped
+	expr, err = expressions.New("$.simple_int + 5")
+	assert.NoError(t, err)
+	paths, err = expr.Dependencies(testScope, nil, nil, fullDataRequirements)
+	assert.NoError(t, err)
+	assert.Equals(t, len(paths), 1)
+	assert.Equals(t, paths[0].String(), "$.simple_int")
+}
+
+func TestDependencyResolution_MathSameDependency(t *testing.T) {
+	// Test simple reference integer math, with both items having the same dependency
+	expr, err := expressions.New("$.simple_int + $.simple_int")
+	assert.NoError(t, err)
+	paths, err := expr.Dependencies(testScope, nil, nil, fullDataRequirements)
+	assert.NoError(t, err)
+	assert.Equals(t, len(paths), 1)
+	assert.Equals(t, paths[0].String(), "$.simple_int")
+}
+
+func TestDependencyResolution_MathDifferentDependencies(t *testing.T) {
+	// Test math with two references, with different references.
+	// Tests the duplicate removal logic, and the left and right paths.
+	expr, err := expressions.New("$.simple_int + $.simple_int_2")
+	assert.NoError(t, err)
+	paths, err := expr.Dependencies(testScope, nil, nil, fullDataRequirements)
+	assert.NoError(t, err)
+	assert.Equals(t, len(paths), 2)
+	assert.SliceContainsExtractor(t, pathStrExtractor, "$.simple_int", paths)
+	assert.SliceContainsExtractor(t, pathStrExtractor, "$.simple_int_2", paths)
+}
+
+func TestDependencyResolution_UnaryLiteral(t *testing.T) {
+	// Test unary operation with literals.
+	expr, err := expressions.New("-5")
+	assert.NoError(t, err)
+	paths, err := expr.Dependencies(testScope, nil, nil, fullDataRequirements)
+	assert.NoError(t, err)
+	assert.Equals(t, len(paths), 0)
+}
+
+func TestDependencyResolution_UnaryReference(t *testing.T) {
+	// Test unary operation with references.
+	expr, err := expressions.New("-$.simple_int")
+	assert.NoError(t, err)
+	paths, err := expr.Dependencies(testScope, nil, nil, fullDataRequirements)
+	assert.NoError(t, err)
+	assert.Equals(t, len(paths), 1)
+	assert.Equals(t, paths[0].String(), "$.simple_int")
+}
+
+func TestDependencyResolution_TestBinaryComparisonLiterals(t *testing.T) {
+	// Test comparison with literals
+	expr, err := expressions.New("4 == 5")
+	assert.NoError(t, err)
+	paths, err := expr.Dependencies(testScope, nil, nil, fullDataRequirements)
+	assert.NoError(t, err)
+	assert.Equals(t, len(paths), 0)
+}
+
+func TestDependencyResolution_TestBinaryComparisonReferences(t *testing.T) {
+	// Test comparison with references
+	expr, err := expressions.New("$.simple_int == 5")
+	assert.NoError(t, err)
+	paths, err := expr.Dependencies(testScope, nil, nil, fullDataRequirements)
+	assert.NoError(t, err)
+	assert.Equals(t, len(paths), 1)
+	assert.Equals(t, paths[0].String(), "$.simple_int")
+}
+
+func TestDependencyResolution_TestBooleanOperationLiterals(t *testing.T) {
+	// Test boolean operations with literals
+	expr, err := expressions.New("true && false")
+	assert.NoError(t, err)
+	paths, err := expr.Dependencies(testScope, nil, nil, fullDataRequirements)
+	assert.NoError(t, err)
+	assert.Equals(t, len(paths), 0)
+}
+
+func TestDependencyResolution_TestBooleanOperationReferences(t *testing.T) {
+	// Test boolean operations with references
+	expr, err := expressions.New("true && $.simple_bool")
+	assert.NoError(t, err)
+	paths, err := expr.Dependencies(testScope, nil, nil, fullDataRequirements)
+	assert.NoError(t, err)
+	assert.Equals(t, len(paths), 1)
+	assert.Equals(t, paths[0].String(), "$.simple_bool")
+}
+
+func TestDependencyResolution_TestMixedMathAndFunc(t *testing.T) {
+	// Test dependencies properly propagated from a function through an operation.
+	intInFunc, err := schema.NewCallableFunction(
+		"intToFloat",
+		[]schema.Type{schema.NewIntSchema(nil, nil, nil)},
+		schema.NewFloatSchema(nil, nil, nil),
+		false,
+		nil,
+		func(a int64) float64 {
+			return float64(a)
+		},
+	)
+	assert.NoError(t, err)
+	funcMap := map[string]schema.Function{"intToFloat": intInFunc}
+
+	expr, err := expressions.New("5.0 + intToFloat($.simple_int)")
+	assert.NoError(t, err)
+	paths, err := expr.Dependencies(testScope, funcMap, nil, fullDataRequirements)
+	assert.NoError(t, err)
+	assert.Equals(t, len(paths), 1)
+	assert.Equals(t, paths[0].String(), "$.simple_int")
+}
+
+func TestDependencyResolution_TestMixedOperations(t *testing.T) {
+	// Test different types of operations that take different types.
+	intInFunc, err := schema.NewCallableFunction(
+		"giveFloat",
+		[]schema.Type{},
+		schema.NewFloatSchema(nil, nil, nil),
+		false,
+		nil,
+		func() float64 {
+			return 5.5
+		},
+	)
+	assert.NoError(t, err)
+	funcMap := map[string]schema.Function{"giveFloat": intInFunc}
+
+	expr, err := expressions.New("1.0 == (5.0 / giveFloat()) && !true")
+	assert.NoError(t, err)
+	paths, err := expr.Dependencies(testScope, funcMap, nil, fullDataRequirements)
+	assert.NoError(t, err)
+	assert.Equals(t, len(paths), 0)
+}

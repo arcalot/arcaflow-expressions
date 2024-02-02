@@ -1,6 +1,7 @@
 package ast
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -395,6 +396,43 @@ func TestSubExpression(t *testing.T) {
 	assert.Equals(t, parsedRoot, root)
 }
 
+func TestParseExpression_Error_BracketAfterLiteral(t *testing.T) {
+	// Test error message for bracket access after literal
+	expression := "0[0]"
+	p, err := InitParser(expression, t.Name())
+
+	assert.NoError(t, err)
+
+	_, err = p.ParseExpression()
+	assert.Error(t, err)
+	assert.Equals(t, err.Error(), `bracket access cannot follow a literal; got "[" after "0"`)
+}
+
+func TestParseExpression_Error_DotAfterLiteral(t *testing.T) {
+	// Test error message for dot notation after literal.
+	expression := "0 .a" // The space is needed for the tokens to be separated for the behavior we're testing.
+	p, err := InitParser(expression, t.Name())
+
+	assert.NoError(t, err)
+
+	_, err = p.ParseExpression()
+	assert.Error(t, err)
+	assert.Equals(t, err.Error(), `dot notation cannot follow a literal; got "." after "0"`)
+}
+
+func TestParseExpression_Error_ParenthesesAfterLiteral(t *testing.T) {
+	// Test the error message for function call after literal.
+	expression := "0(0 + 0)"
+	p, err := InitParser(expression, t.Name())
+
+	assert.NoError(t, err)
+
+	parsedResult, err := p.ParseExpression()
+	assert.Error(t, err)
+	assert.Nil(t, parsedResult)
+	assert.Contains(t, err.Error(), "an opening parentheses cannot follow a literal")
+}
+
 func TestEmptyFunctionExpression(t *testing.T) {
 	expression := "funcName()"
 
@@ -561,11 +599,674 @@ func TestExpressionInvalidIdentifier(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestExpression_SimpleAdd(t *testing.T) {
+	expression := "2 + 2"
+
+	// 2 + 2 as tree
+	root := &BinaryOperation{
+		LeftNode:  &IntLiteral{IntValue: 2},
+		RightNode: &IntLiteral{IntValue: 2},
+		Operation: Add,
+	}
+
+	// Create parser
+	p, err := InitParser(expression, t.Name())
+
+	assert.NoError(t, err)
+
+	// Parse and validate
+	parsedResult, err := p.ParseExpression()
+
+	assert.NoError(t, err)
+	assert.NotNil(t, parsedResult)
+
+	assert.InstanceOf[*BinaryOperation](t, parsedResult)
+	assert.Equals(t, parsedResult.(*BinaryOperation), root)
+}
+
+func TestExpression_ThreeSub(t *testing.T) {
+	expression := "1.0 - 2.0 - 3.0"
+
+	// 1.0 - 2.0 - 3.0 as tree
+	//     -
+	//    / \
+	//   -   3.0
+	//  / \
+	// 1.0    2.0
+	level2 := &BinaryOperation{
+		LeftNode:  &FloatLiteral{FloatValue: 1.0},
+		RightNode: &FloatLiteral{FloatValue: 2.0},
+		Operation: Subtract,
+	}
+	root := &BinaryOperation{
+		LeftNode:  level2,
+		RightNode: &FloatLiteral{FloatValue: 3.0},
+		Operation: Subtract,
+	}
+
+	// Create parser
+	p, err := InitParser(expression, t.Name())
+
+	assert.NoError(t, err)
+
+	// Parse and validate
+	parsedResult, err := p.ParseExpression()
+
+	assert.NoError(t, err)
+	assert.NotNil(t, parsedResult)
+
+	assert.InstanceOf[*BinaryOperation](t, parsedResult)
+	assert.Equals[Node](t, parsedResult, root)
+}
+
+func TestExpression_MixedAddMultiplicationDivision(t *testing.T) {
+	expression := "7 + 50 * 6 / 10"
+
+	// 7 + 50 * 6 / 10 as tree
+	//       +
+	//      / \
+	//     ÷   7
+	//    / \
+	//   *   10
+	//  / \
+	// 50  6
+	level3 := &BinaryOperation{
+		LeftNode:  &IntLiteral{IntValue: 50},
+		RightNode: &IntLiteral{IntValue: 6},
+		Operation: Multiply,
+	}
+	level2 := &BinaryOperation{
+		LeftNode:  level3,
+		RightNode: &IntLiteral{IntValue: 10},
+		Operation: Divide,
+	}
+	root := &BinaryOperation{
+		LeftNode:  &IntLiteral{IntValue: 7},
+		RightNode: level2,
+		Operation: Add,
+	}
+
+	// Create parser
+	p, err := InitParser(expression, t.Name())
+
+	assert.NoError(t, err)
+
+	// Parse and validate
+	parsedResult, err := p.ParseExpression()
+
+	assert.NoError(t, err)
+	assert.NotNil(t, parsedResult)
+
+	assert.InstanceOf[*BinaryOperation](t, parsedResult)
+	assert.Equals[Node](t, parsedResult, root)
+}
+
+func TestExpression_Power(t *testing.T) {
+	expression := "1 ^ 4 * 3"
+
+	// 1 ^ 4 * 3 as tree
+	//     *
+	//    / \
+	//   ^   3
+	//  / \
+	// 1    4
+	level2 := &BinaryOperation{
+		LeftNode:  &IntLiteral{IntValue: 1},
+		RightNode: &IntLiteral{IntValue: 4},
+		Operation: Power,
+	}
+	root := &BinaryOperation{
+		LeftNode:  level2,
+		RightNode: &IntLiteral{IntValue: 3},
+		Operation: Multiply,
+	}
+
+	// Create parser
+	p, err := InitParser(expression, t.Name())
+
+	assert.NoError(t, err)
+
+	// Parse and validate
+	parsedResult, err := p.ParseExpression()
+
+	assert.NoError(t, err)
+	assert.NotNil(t, parsedResult)
+
+	assert.InstanceOf[*BinaryOperation](t, parsedResult)
+	assert.Equals[Node](t, parsedResult, root)
+}
+
+func TestExpression_PowerParentheses(t *testing.T) {
+	expression := "2 ^ (4 * 3)"
+
+	// 2 ^ 4 * 3 as tree
+	//     ^
+	//    / \
+	//   2   *
+	//      / \
+	//     4    3
+	level2 := &BinaryOperation{
+		LeftNode:  &IntLiteral{IntValue: 4},
+		RightNode: &IntLiteral{IntValue: 3},
+		Operation: Multiply,
+	}
+	root := &BinaryOperation{
+		LeftNode:  &IntLiteral{IntValue: 2},
+		RightNode: level2,
+		Operation: Power,
+	}
+
+	// Create parser
+	p, err := InitParser(expression, t.Name())
+
+	assert.NoError(t, err)
+
+	// Parse and validate
+	parsedResult, err := p.ParseExpression()
+
+	assert.NoError(t, err)
+	assert.NotNil(t, parsedResult)
+
+	assert.InstanceOf[*BinaryOperation](t, parsedResult)
+	assert.Equals[Node](t, parsedResult, root)
+}
+
+func TestExpression_Parentheses(t *testing.T) {
+	expression := "(4 + 3) * 2"
+
+	// (4 + 3) * 2 as tree
+	//     *
+	//    / \
+	//   +   2
+	//  / \
+	// 4    3
+	level2 := &BinaryOperation{
+		LeftNode:  &IntLiteral{IntValue: 4},
+		RightNode: &IntLiteral{IntValue: 3},
+		Operation: Add,
+	}
+	root := &BinaryOperation{
+		LeftNode:  level2,
+		RightNode: &IntLiteral{IntValue: 2},
+		Operation: Multiply,
+	}
+
+	// Create parser
+	p, err := InitParser(expression, t.Name())
+
+	assert.NoError(t, err)
+
+	// Parse and validate
+	parsedResult, err := p.ParseExpression()
+
+	assert.NoError(t, err)
+	assert.NotNil(t, parsedResult)
+
+	assert.InstanceOf[*BinaryOperation](t, parsedResult)
+	assert.Equals[Node](t, parsedResult, root)
+}
+
+func TestExpression_UnaryNegative(t *testing.T) {
+	expression := "5 + -5"
+
+	// 5 + -5 as tree
+	//     +
+	//    / \
+	//   5   -
+	//       |
+	//       5
+	level2 := &UnaryOperation{
+		LeftOperation: Subtract,
+		RightNode:     &IntLiteral{IntValue: 5},
+	}
+	root := &BinaryOperation{
+		LeftNode:  &IntLiteral{IntValue: 5},
+		RightNode: level2,
+		Operation: Add,
+	}
+
+	// Create parser
+	p, err := InitParser(expression, t.Name())
+
+	assert.NoError(t, err)
+
+	// Parse and validate
+	parsedResult, err := p.ParseExpression()
+
+	assert.NoError(t, err)
+	assert.NotNil(t, parsedResult)
+
+	assert.InstanceOf[*BinaryOperation](t, parsedResult)
+	assert.Equals[Node](t, parsedResult, root)
+}
+
+func TestExpression_MultiNegationUnary(t *testing.T) {
+	expression := `---5`
+	level3 := &UnaryOperation{
+		LeftOperation: Subtract,
+		RightNode:     &IntLiteral{IntValue: 5},
+	}
+	level2 := &UnaryOperation{
+		LeftOperation: Subtract,
+		RightNode:     level3,
+	}
+	root := &UnaryOperation{
+		LeftOperation: Subtract,
+		RightNode:     level2,
+	}
+	p, err := InitParser(expression, t.Name())
+	assert.NoError(t, err)
+	parsedResult, err := p.ParseExpression()
+	assert.NoError(t, err)
+	assert.NotNil(t, parsedResult)
+
+	assert.InstanceOf[*UnaryOperation](t, parsedResult)
+	assert.Equals[Node](t, parsedResult, root)
+}
+
+func TestExpression_MultiNegationUnaryParentheses(t *testing.T) {
+	expression := `-(-5)`
+	level2 := &UnaryOperation{
+		LeftOperation: Subtract,
+		RightNode:     &IntLiteral{IntValue: 5},
+	}
+	root := &UnaryOperation{
+		LeftOperation: Subtract,
+		RightNode:     level2,
+	}
+	p, err := InitParser(expression, t.Name())
+	assert.NoError(t, err)
+	parsedResult, err := p.ParseExpression()
+	assert.NoError(t, err)
+	assert.NotNil(t, parsedResult)
+
+	assert.InstanceOf[*UnaryOperation](t, parsedResult)
+	assert.Equals[Node](t, parsedResult, root)
+}
+
+func TestExpression_MultiNotUnary(t *testing.T) {
+	expression := `!!true`
+	level2 := &UnaryOperation{
+		LeftOperation: Not,
+		RightNode:     &BooleanLiteral{BooleanValue: true},
+	}
+	root := &UnaryOperation{
+		LeftOperation: Not,
+		RightNode:     level2,
+	}
+	p, err := InitParser(expression, t.Name())
+	assert.NoError(t, err)
+	parsedResult, err := p.ParseExpression()
+	assert.NoError(t, err)
+	assert.NotNil(t, parsedResult)
+
+	assert.InstanceOf[*UnaryOperation](t, parsedResult)
+	assert.Equals[Node](t, parsedResult, root)
+}
+
+// In the binary operator grammar tests, not all operators are tested
+// in every scenario because not every operator has its own code path.
+// The per-operator tests are done in expression_evaluate_test.go
+
+func TestExpression_SimpleComparison(t *testing.T) {
+	expression := "2 > 2"
+
+	// 2 > 2 as tree
+	//   >
+	//  / \
+	// 2   2
+	root := &BinaryOperation{
+		LeftNode:  &IntLiteral{IntValue: 2},
+		RightNode: &IntLiteral{IntValue: 2},
+		Operation: GreaterThan,
+	}
+
+	// Create parser
+	p, err := InitParser(expression, t.Name())
+
+	assert.NoError(t, err)
+
+	// Parse and validate
+	parsedResult, err := p.ParseExpression()
+
+	assert.NoError(t, err)
+	assert.NotNil(t, parsedResult)
+
+	assert.InstanceOf[*BinaryOperation](t, parsedResult)
+	assert.Equals[Node](t, parsedResult, root)
+}
+
+func TestExpression_SimpleComparisonTwoToken(t *testing.T) {
+	expression := "2 >= 2"
+
+	// 2 >= 2 as tree
+	//  >=
+	//  / \
+	// 2   2
+	root := &BinaryOperation{
+		LeftNode:  &IntLiteral{IntValue: 2},
+		RightNode: &IntLiteral{IntValue: 2},
+		Operation: GreaterThanEqualTo,
+	}
+	// Create parser
+	p, err := InitParser(expression, t.Name())
+
+	assert.NoError(t, err)
+
+	// Parse and validate
+	parsedResult, err := p.ParseExpression()
+
+	assert.NoError(t, err)
+	assert.NotNil(t, parsedResult)
+
+	assert.InstanceOf[*BinaryOperation](t, parsedResult)
+	assert.Equals[Node](t, parsedResult, root)
+}
+
+func TestExpression_ErrIncorrectEquals(t *testing.T) {
+	// In this test, we ensure that it properly rejects a single equals. A double equals is required.
+	expression := "2 = 2"
+
+	// Create parser
+	p, err := InitParser(expression, t.Name())
+
+	assert.NoError(t, err)
+
+	// Parse and validate
+	_, err = p.ParseExpression()
+
+	assert.Error(t, err)
+	var grammarErr *InvalidGrammarError
+	ok := errors.As(err, &grammarErr)
+	if !ok {
+		t.Fatalf("Returned error is not InvalidGrammarError")
+	}
+	assert.Equals(t, grammarErr.ExpectedTokens, []TokenID{EqualsToken})
+}
+
+func TestExpression_MixedComparisons(t *testing.T) {
+	expression := "0 < 1 + 2"
+
+	// 0 < 1 + 2 as tree
+	//     <
+	//    / \
+	//   0   +
+	//      / \
+	//     1   2
+	level2 := &BinaryOperation{
+		LeftNode:  &IntLiteral{IntValue: 1},
+		RightNode: &IntLiteral{IntValue: 2},
+		Operation: Add,
+	}
+	root := &BinaryOperation{
+		LeftNode:  &IntLiteral{IntValue: 0},
+		RightNode: level2,
+		Operation: LessThan,
+	}
+
+	// Create parser
+	p, err := InitParser(expression, t.Name())
+
+	assert.NoError(t, err)
+
+	// Parse and validate
+	parsedResult, err := p.ParseExpression()
+
+	assert.NoError(t, err)
+	assert.NotNil(t, parsedResult)
+
+	assert.InstanceOf[*BinaryOperation](t, parsedResult)
+	assert.Equals[Node](t, parsedResult, root)
+}
+func TestExpression_AndLogic(t *testing.T) {
+	expression := "true && false"
+
+	// true && false as tree
+	//     &&
+	//    /  \
+	//  true  false
+	root := &BinaryOperation{
+		LeftNode:  &BooleanLiteral{BooleanValue: true},
+		RightNode: &BooleanLiteral{BooleanValue: false},
+		Operation: And,
+	}
+
+	// Create parser
+	p, err := InitParser(expression, t.Name())
+
+	assert.NoError(t, err)
+
+	// Parse and validate
+	parsedResult, err := p.ParseExpression()
+
+	assert.NoError(t, err)
+	assert.NotNil(t, parsedResult)
+
+	assert.InstanceOf[*BinaryOperation](t, parsedResult)
+	assert.Equals[Node](t, parsedResult, root)
+}
+
+func TestExpression_AllTypes(t *testing.T) {
+	expression := "2 * 3 + 4 > 2 % 5 || $.test && !true"
+
+	// 2 * 3 + 4 > 2 % 5 || $.test && !true as tree
+	//                 ||
+	//             /        \
+	//           >            &&
+	//        /     \        /    \
+	//       +       %    $.test   !
+	//     /  \     / \            |
+	//    *    4   2   5          true
+	//   / \
+	//  2   3
+	multiplicationNode := &BinaryOperation{
+		LeftNode:  &IntLiteral{IntValue: 2},
+		RightNode: &IntLiteral{IntValue: 3},
+		Operation: Multiply,
+	}
+	addNode := &BinaryOperation{
+		LeftNode:  multiplicationNode,
+		RightNode: &IntLiteral{IntValue: 4},
+		Operation: Add,
+	}
+	modNode := &BinaryOperation{
+		LeftNode:  &IntLiteral{IntValue: 2},
+		RightNode: &IntLiteral{IntValue: 5},
+		Operation: Modulus,
+	}
+	greaterThanNode := &BinaryOperation{
+		LeftNode:  addNode,
+		RightNode: modNode,
+		Operation: GreaterThan,
+	}
+	notNode := &UnaryOperation{
+		LeftOperation: Not,
+		RightNode:     &BooleanLiteral{BooleanValue: true},
+	}
+	andNode := &BinaryOperation{
+		LeftNode:  &Identifier{IdentifierName: "$.test"},
+		RightNode: notNode,
+		Operation: And,
+	}
+	root := &BinaryOperation{
+		LeftNode:  greaterThanNode,
+		RightNode: andNode,
+		Operation: Or,
+	}
+
+	// Create parser
+	p, err := InitParser(expression, t.Name())
+
+	assert.NoError(t, err)
+
+	// Parse and validate
+	parsedResult, err := p.ParseExpression()
+
+	assert.NoError(t, err)
+	assert.NotNil(t, parsedResult)
+
+	assert.InstanceOf[*BinaryOperation](t, parsedResult)
+	// For some reason, comparing the raw results was failing falsely.
+	assert.Equals(t, parsedResult.String(), root.String())
+}
+
+// Test unexpected tokens
+// This is specifically targeted for places where a specific token is always expected,
+// which is where .eat is called.
+func TestExpression_MismatchedPair(t *testing.T) {
+	bracketAccessExpr := "$.test[5)"
+	// Create parser
+	p, err := InitParser(bracketAccessExpr, t.Name())
+
+	assert.NoError(t, err)
+
+	// Parse and validate
+	_, err = p.ParseExpression()
+
+	assert.Error(t, err)
+	var grammarErr *InvalidGrammarError
+	ok := errors.As(err, &grammarErr)
+	if !ok {
+		t.Fatalf("Returned error is not InvalidGrammarError")
+	}
+	assert.Equals(t, grammarErr.ExpectedTokens, []TokenID{BracketAccessDelimiterEndToken})
+
+	funcExpr := "5 * (5 * 5]"
+	// Create parser
+	p, err = InitParser(funcExpr, t.Name())
+
+	assert.NoError(t, err)
+
+	// Parse and validate
+	_, err = p.ParseExpression()
+
+	assert.Error(t, err)
+	ok = errors.As(err, &grammarErr)
+	if !ok {
+		t.Fatalf("Returned error is not InvalidGrammarError")
+	}
+	assert.Equals(t, grammarErr.ExpectedTokens, []TokenID{ParenthesesEndToken})
+}
+
 func TestExpressionErrorChainLiteral(t *testing.T) {
 	expression := `"a".a`
 	p, err := InitParser(expression, t.Name())
 	assert.NoError(t, err)
 	_, err = p.ParseExpression()
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "Expected end of expression")
+	assert.Contains(t, err.Error(), "dot notation cannot follow a literal")
+}
+
+func TestParseArgs_badStart(t *testing.T) {
+	expression := `))`
+	p, err := InitParser(expression, t.Name())
+	assert.NoError(t, err)
+	err = p.advanceToken()
+	assert.NoError(t, err)
+	_, err = p.parseArgs()
+	assert.Error(t, err)
+	var grammarErr *InvalidGrammarError
+	ok := errors.As(err, &grammarErr)
+	if !ok {
+		t.Fatalf("Returned error is not InvalidGrammarError")
+	}
+	assert.Equals(t, grammarErr.ExpectedTokens, []TokenID{ParenthesesStartToken})
+}
+
+func TestParseArgs_badEnd2(t *testing.T) {
+	// An incomplete argument list with a missing close parentheses.
+	expression := `(""`
+	p, err := InitParser(expression, t.Name())
+	assert.NoError(t, err)
+	err = p.advanceToken()
+	assert.NoError(t, err)
+	_, err = p.parseArgs()
+	assert.Error(t, err)
+	var grammarErr *InvalidGrammarError
+	ok := errors.As(err, &grammarErr)
+	if !ok {
+		t.Fatalf("Returned error is not InvalidGrammarError")
+	}
+	assert.Equals(t, grammarErr.ExpectedTokens, []TokenID{ParenthesesEndToken, ListSeparatorToken})
+}
+
+func TestParseArgs_badSeparator(t *testing.T) {
+	// Testing a bad argument list
+	expression := `(""1`
+	p, err := InitParser(expression, t.Name())
+	assert.NoError(t, err)
+	err = p.advanceToken()
+	assert.NoError(t, err)
+	_, err = p.parseArgs()
+	assert.Error(t, err)
+	var grammarErr *InvalidGrammarError
+	ok := errors.As(err, &grammarErr)
+	if !ok {
+		t.Fatalf("Returned error is not InvalidGrammarError")
+	}
+	assert.Equals(t, grammarErr.ExpectedTokens, []TokenID{ListSeparatorToken, ParenthesesEndToken})
+}
+
+func TestParseArgs_endedAfterSeparator(t *testing.T) {
+	// Test separator in place of close parentheses
+	expression := `("",`
+	p, err := InitParser(expression, t.Name())
+	assert.NoError(t, err)
+	err = p.advanceToken()
+	assert.NoError(t, err)
+	_, err = p.parseArgs()
+	assert.Error(t, err)
+	var grammarErr *InvalidGrammarError
+	ok := errors.As(err, &grammarErr)
+	if !ok {
+		t.Fatalf("Returned error is not InvalidGrammarError")
+	}
+	assert.Equals(t, grammarErr.ExpectedTokens, []TokenID{ParenthesesEndToken})
+}
+
+func TestParseArgs_badFirstToken(t *testing.T) {
+	// Test a missing open parentheses.
+	// This is testing an edge-case that should not be hit if designed correctly.
+	expression := `1`
+	p, err := InitParser(expression, t.Name())
+	assert.NoError(t, err)
+	err = p.advanceToken()
+	assert.NoError(t, err)
+	_, err = p.parseArgs()
+	assert.Error(t, err)
+	var grammarErr *InvalidGrammarError
+	ok := errors.As(err, &grammarErr)
+	if !ok {
+		t.Fatalf("Returned error is not InvalidGrammarError")
+	}
+	assert.Equals(t, grammarErr.ExpectedTokens, []TokenID{ParenthesesStartToken})
+}
+
+func TestParseString_EscapedStrings(t *testing.T) {
+	expression := `"a\"b" "a\tb" "a\\b" "a\bb" "a\nb" "a\\nb" '\''`
+	p, err := InitParser(expression, t.Name())
+	assert.NoError(t, err)
+	err = p.advanceToken()
+	assert.NoError(t, err)
+	result, err := p.parseStringLiteral()
+	assert.NoError(t, err)
+	assert.Equals(t, result.StrValue, `a"b`)
+	result, err = p.parseStringLiteral()
+	assert.NoError(t, err)
+	assert.Equals(t, result.StrValue, "a\tb")
+	result, err = p.parseStringLiteral()
+	assert.NoError(t, err)
+	assert.Equals(t, result.StrValue, `a\b`)
+	result, err = p.parseStringLiteral()
+	assert.NoError(t, err)
+	assert.Equals(t, result.StrValue, "a\bb")
+	result, err = p.parseStringLiteral()
+	assert.NoError(t, err)
+	assert.Equals(t, result.StrValue, "a\nb")
+	result, err = p.parseStringLiteral()
+	assert.NoError(t, err)
+	assert.Equals(t, result.StrValue, "a\\nb")
+	result, err = p.parseStringLiteral()
+	assert.NoError(t, err)
+	assert.Equals(t, result.StrValue, "'")
 }

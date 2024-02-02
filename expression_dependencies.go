@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"go.flow.arcalot.io/expressions/internal/ast"
 	"go.flow.arcalot.io/pluginsdk/schema"
+	"slices"
 )
 
 // dependencyContext holds the root data for a dependency evaluation in an expression. This is useful so that we
@@ -74,11 +75,151 @@ func (c *dependencyContext) dependencies(
 		return &dependencyResult{resolvedType: schema.NewStringSchema(nil, nil, nil)}, nil
 	case *ast.IntLiteral:
 		return &dependencyResult{resolvedType: schema.NewIntSchema(nil, nil, nil)}, nil
+	case *ast.FloatLiteral:
+		return &dependencyResult{resolvedType: schema.NewFloatSchema(nil, nil, nil)}, nil
+	case *ast.BooleanLiteral:
+		return &dependencyResult{resolvedType: schema.NewBoolSchema()}, nil
+	case *ast.BinaryOperation:
+		return c.binaryOperationDependencies(n)
+	case *ast.UnaryOperation:
+		return c.unaryOperationDependencies(n)
 	case *ast.FunctionCall:
 		return c.functionDependencies(n)
 	default:
 		return nil, fmt.Errorf("unsupported AST node type: %T", n)
 	}
+}
+
+func (c *dependencyContext) unaryOperationDependencies(
+	node *ast.UnaryOperation,
+) (*dependencyResult, error) {
+	// Unary operations don't change dependencies, but the type must be validated.
+	innerResult, err := c.rootDependencies(node.RightNode)
+	if err != nil {
+		return nil, err
+	}
+	switch node.LeftOperation {
+	case ast.Subtract:
+		// Negation expects a numerical type
+		if innerResult.resolvedType.TypeID() != schema.TypeIDInt &&
+			innerResult.resolvedType.TypeID() != schema.TypeIDFloat {
+			return nil,
+				fmt.Errorf("attempted negation operation on non-numeric type %q",
+					innerResult.resolvedType.TypeID())
+		}
+	case ast.Not:
+		// 'not' expects a boolean input
+		if innerResult.resolvedType.TypeID() != schema.TypeIDBool {
+			return nil,
+				fmt.Errorf("attempted 'not' operation on non-boolean type %q",
+					innerResult.resolvedType.TypeID())
+		}
+	default:
+		return nil, fmt.Errorf("unsupported unary operation: %q", node.LeftOperation)
+	}
+	// Negation and 'not' do not change the type or dependencies.
+	return innerResult, nil
+}
+
+func (c *dependencyContext) binaryOperationDependencies(
+	node *ast.BinaryOperation,
+) (*dependencyResult, error) {
+	leftResult, err := c.rootDependencies(node.LeftNode)
+	if err != nil {
+		return nil, err
+	}
+	// Right dependencies, using left type.
+	rightResult, err := c.rootDependencies(node.RightNode)
+	if err != nil {
+		return nil, err
+	}
+	var resultType schema.Type
+	// Validate operations with the resolved type, and compute the return type for the combination.
+	switch node.Operation {
+	case ast.Add:
+		// Add or concatenate
+		err = validateValidBinaryOpTypes(
+			node,
+			leftResult.resolvedType.TypeID(),
+			rightResult.resolvedType.TypeID(),
+			[]schema.TypeID{schema.TypeIDInt, schema.TypeIDFloat, schema.TypeIDString},
+		)
+		resultType = leftResult.resolvedType
+	case ast.Subtract, ast.Multiply, ast.Divide, ast.Modulus, ast.Power:
+		// Math. Same as type going in. Plus validate that it's numeric.
+		err = validateValidBinaryOpTypes(
+			node,
+			leftResult.resolvedType.TypeID(),
+			rightResult.resolvedType.TypeID(),
+			[]schema.TypeID{schema.TypeIDInt, schema.TypeIDFloat},
+		)
+		resultType = leftResult.resolvedType
+	case ast.And, ast.Or:
+		// Boolean operations. Bool in and out.
+		err = validateValidBinaryOpTypes(
+			node,
+			leftResult.resolvedType.TypeID(),
+			rightResult.resolvedType.TypeID(),
+			[]schema.TypeID{schema.TypeIDBool},
+		)
+		resultType = schema.NewBoolSchema()
+	case ast.GreaterThan, ast.LessThan, ast.GreaterThanEqualTo, ast.LessThanEqualTo:
+		// Inequality. Int, float, or string in; bool out.
+		err = validateValidBinaryOpTypes(
+			node,
+			leftResult.resolvedType.TypeID(),
+			rightResult.resolvedType.TypeID(),
+			[]schema.TypeID{schema.TypeIDInt, schema.TypeIDString, schema.TypeIDFloat},
+		)
+		resultType = schema.NewBoolSchema()
+	case ast.EqualTo, ast.NotEqualTo:
+		// Equality comparison. Any supported type in. Bool out.
+		err = validateValidBinaryOpTypes(
+			node,
+			leftResult.resolvedType.TypeID(),
+			rightResult.resolvedType.TypeID(),
+			[]schema.TypeID{schema.TypeIDInt, schema.TypeIDString, schema.TypeIDFloat, schema.TypeIDBool},
+		)
+		resultType = schema.NewBoolSchema()
+	case ast.Invalid:
+		panic(fmt.Errorf("attempted to perform invalid operation (binary operation type invalid)"))
+	default:
+		panic(fmt.Errorf("bug: binary operation %s missing from dependency evaluation code", node.Operation))
+	}
+	if err != nil {
+		return nil, err
+	}
+	// Combine the left and right dependencies.
+	finalDependencies := append(leftResult.completedPaths, rightResult.completedPaths...)
+	return &dependencyResult{
+		resolvedType:   resultType,
+		rootPathResult: nil, // Cannot be chained. It's a primitive.
+		completedPaths: finalDependencies,
+	}, nil
+}
+
+func validateValidBinaryOpTypes(
+	node *ast.BinaryOperation,
+	leftType schema.TypeID,
+	rightType schema.TypeID,
+	expectedTypes []schema.TypeID,
+) error {
+	// First validate left and right types are within the expected types.
+	leftIsValid := slices.Contains(expectedTypes, leftType)
+	if !leftIsValid {
+		return fmt.Errorf("invalid type %q from left expression %q for binary operation %q; expected one of %q",
+			leftType, node.LeftNode.String(), node.Operation, expectedTypes)
+	}
+	rightIsValid := slices.Contains(expectedTypes, rightType)
+	if !rightIsValid {
+		return fmt.Errorf("invalid type %q from right expression %q for binary operation %q; expected one of %q",
+			rightType, node.RightNode.String(), node.Operation, expectedTypes)
+	}
+	// Next, validate that left and right types match
+	if leftType != rightType {
+		return fmt.Errorf("left (%s) and right (%s) types do not match for binary expression %q", leftType, rightType, node.String())
+	}
+	return nil
 }
 
 func (c *dependencyContext) functionDependencies(node *ast.FunctionCall) (*dependencyResult, error) {

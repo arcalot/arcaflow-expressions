@@ -67,6 +67,41 @@ func (l *IntLiteral) Value() interface{} {
 	return l.IntValue
 }
 
+// FloatLiteral represents a floating point literal value in the abstract syntax
+// tree.
+type FloatLiteral struct {
+	FloatValue float64
+}
+
+// String returns a string representation of the float contained.
+func (l *FloatLiteral) String() string {
+	// 'f' for full float, instead of exponential format.
+	// The third arg, prec, is -1 to give an exact output.
+	// The fourth arg specifies that we're using 64-bit floats.
+	return strconv.FormatFloat(l.FloatValue, 'f', -1, 64)
+}
+
+// Value returns the float contained.
+func (l *FloatLiteral) Value() interface{} {
+	return l.FloatValue
+}
+
+// BooleanLiteral represents a boolean literal value in the abstract syntax
+// tree. true or false
+type BooleanLiteral struct {
+	BooleanValue bool
+}
+
+// String returns a string representation of the boolean contained.
+func (l *BooleanLiteral) String() string {
+	return strconv.FormatBool(l.BooleanValue)
+}
+
+// Value returns the float contained.
+func (l *BooleanLiteral) Value() interface{} {
+	return l.BooleanValue
+}
+
 // BracketAccessor represents a part of the abstract syntax tree that is accessing
 // the value at a key in a map/object, or index of a list.
 // The format is the value to the left, followed by an open/right square bracket, followed
@@ -178,7 +213,7 @@ func (l *ArgumentList) GetChild(index int) (Node, error) {
 	return l.Arguments[index], nil
 }
 
-// String returns the identifier name.
+// String gives a comma-separated list of the arguments
 func (l *ArgumentList) String() string {
 	if len(l.Arguments) == 0 {
 		return ""
@@ -188,4 +223,97 @@ func (l *ArgumentList) String() string {
 		result += ", " + l.Arguments[i].String()
 	}
 	return result
+}
+
+type MathOperationType int
+
+const (
+	Invalid MathOperationType = iota
+	Add
+	Subtract
+	Multiply
+	Divide
+	Modulus
+	Power
+	EqualTo
+	NotEqualTo
+	GreaterThan
+	LessThan
+	GreaterThanEqualTo
+	LessThanEqualTo
+	And
+	Or
+	Not
+)
+
+func (e MathOperationType) String() string {
+	switch e {
+	case Invalid:
+		return "INVALID"
+	case Add:
+		return "+"
+	case Subtract:
+		return "-"
+	case Multiply:
+		return "*"
+	case Divide:
+		return "÷"
+	case Modulus:
+		return "%"
+	case Power:
+		return "^"
+	case EqualTo:
+		return "=="
+	case NotEqualTo:
+		return "!="
+	case GreaterThan:
+		return ">"
+	case LessThan:
+		return "<"
+	case GreaterThanEqualTo:
+		return ">="
+	case LessThanEqualTo:
+		return "<="
+	case And:
+		return "&&"
+	case Or:
+		return "||"
+	case Not:
+		return "!"
+	default:
+		return "ENTRY MISSING"
+	}
+}
+
+type BinaryOperation struct {
+	LeftNode  Node
+	RightNode Node
+	Operation MathOperationType
+}
+
+func (b *BinaryOperation) Right() Node {
+	return b.RightNode
+}
+
+func (b *BinaryOperation) Left() Node {
+	return b.LeftNode
+}
+
+// String returns the left node, followed by the operator, followed by the right node.
+// The left and right nodes are clarified with (), because context that determined order of
+// operations, like parentheses, are not explicitly retained in the tree. But the structure
+// of the tree represents the evaluation order present in the original expression.
+func (b *BinaryOperation) String() string {
+	return "(" + b.LeftNode.String() + ") " + b.Operation.String() + " (" + b.RightNode.String() + ")"
+}
+
+type UnaryOperation struct {
+	LeftOperation MathOperationType
+	RightNode     Node
+}
+
+// String returns the operation, followed by the string representation of the right node.
+// The wrapped node is surrounded by parentheses to remove ambiguity.
+func (b *UnaryOperation) String() string {
+	return b.LeftOperation.String() + "(" + b.RightNode.String() + ") "
 }
