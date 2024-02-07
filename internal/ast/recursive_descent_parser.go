@@ -103,11 +103,11 @@ func (p *Parser) parseIntLiteral() (*IntLiteral, error) {
 	if p.currentToken.TokenID != IntLiteralToken {
 		return nil, &InvalidGrammarError{FoundToken: p.currentToken, ExpectedTokens: []TokenID{IntLiteralToken}}
 	}
-	parsedInt, err := strconv.Atoi(p.currentToken.Value)
+	parsedInt, err := strconv.ParseInt(p.currentToken.Value, 10, 0)
 	if err != nil {
 		return nil, err // Should not fail if the parser is set up correctly
 	}
-	literal := &IntLiteral{IntValue: int64(parsedInt)}
+	literal := &IntLiteral{IntValue: parsedInt}
 	err = p.advanceToken()
 	if err != nil {
 		return nil, err
