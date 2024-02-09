@@ -235,6 +235,18 @@ func TestTypeResolution_BinaryConcatenateStrings(t *testing.T) {
 	assert.Equals[schema.Type](t, typeResult, schema.NewStringSchema(nil, nil, nil))
 }
 
+func TestTypeResolution_WithStrictSchemas(t *testing.T) {
+	// In this example, we're going to reference schemas that have regular expressions that
+	// no longer apply when appended together.
+	// Use the strict schema for both left and right sides to ensure neither the left nor the right's
+	// strict schema is retained.
+	expr, err := expressions.New(`$.restrictive_str + $.restrictive_str`)
+	assert.NoError(t, err)
+	typeResult, err := expr.Type(testScope, nil, nil)
+	assert.NoError(t, err)
+	assert.Equals[schema.Type](t, typeResult, schema.NewStringSchema(nil, nil, nil))
+}
+
 func TestTypeResolution_BinaryMathHomogeneousIntReference(t *testing.T) {
 	// Two ints added should give an int. One int is a reference.
 	expr, err := expressions.New("5 + $.simple_int")
