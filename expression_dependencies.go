@@ -144,7 +144,10 @@ func (c *dependencyContext) binaryOperationDependencies(
 			rightResult.resolvedType.TypeID(),
 			[]schema.TypeID{schema.TypeIDInt, schema.TypeIDFloat, schema.TypeIDString},
 		)
-		resultType = leftResult.resolvedType
+		if err != nil {
+			return nil, err
+		}
+		resultType = cleanType(leftResult.resolvedType.TypeID())
 	case ast.Subtract, ast.Multiply, ast.Divide, ast.Modulus, ast.Power:
 		// Math. Same as type going in. Plus validate that it's numeric.
 		err = validateValidBinaryOpTypes(
@@ -153,7 +156,10 @@ func (c *dependencyContext) binaryOperationDependencies(
 			rightResult.resolvedType.TypeID(),
 			[]schema.TypeID{schema.TypeIDInt, schema.TypeIDFloat},
 		)
-		resultType = leftResult.resolvedType
+		if err != nil {
+			return nil, err
+		}
+		resultType = cleanType(leftResult.resolvedType.TypeID())
 	case ast.And, ast.Or:
 		// Boolean operations. Bool in and out.
 		err = validateValidBinaryOpTypes(
@@ -162,6 +168,9 @@ func (c *dependencyContext) binaryOperationDependencies(
 			rightResult.resolvedType.TypeID(),
 			[]schema.TypeID{schema.TypeIDBool},
 		)
+		if err != nil {
+			return nil, err
+		}
 		resultType = schema.NewBoolSchema()
 	case ast.GreaterThan, ast.LessThan, ast.GreaterThanEqualTo, ast.LessThanEqualTo:
 		// Inequality. Int, float, or string in; bool out.
@@ -171,6 +180,9 @@ func (c *dependencyContext) binaryOperationDependencies(
 			rightResult.resolvedType.TypeID(),
 			[]schema.TypeID{schema.TypeIDInt, schema.TypeIDString, schema.TypeIDFloat},
 		)
+		if err != nil {
+			return nil, err
+		}
 		resultType = schema.NewBoolSchema()
 	case ast.EqualTo, ast.NotEqualTo:
 		// Equality comparison. Any supported type in. Bool out.
@@ -180,14 +192,14 @@ func (c *dependencyContext) binaryOperationDependencies(
 			rightResult.resolvedType.TypeID(),
 			[]schema.TypeID{schema.TypeIDInt, schema.TypeIDString, schema.TypeIDFloat, schema.TypeIDBool},
 		)
+		if err != nil {
+			return nil, err
+		}
 		resultType = schema.NewBoolSchema()
 	case ast.Invalid:
 		panic(fmt.Errorf("attempted to perform invalid operation (binary operation type invalid)"))
 	default:
 		panic(fmt.Errorf("bug: binary operation %s missing from dependency evaluation code", node.Operation))
-	}
-	if err != nil {
-		return nil, err
 	}
 	// Combine the left and right dependencies.
 	finalDependencies := append(leftResult.completedPaths, rightResult.completedPaths...)
@@ -196,6 +208,21 @@ func (c *dependencyContext) binaryOperationDependencies(
 		rootPathResult: nil, // Cannot be chained. It's a primitive.
 		completedPaths: finalDependencies,
 	}, nil
+}
+
+// Returns a version of ths schema without limiting details.
+// Used for when an expression is modifying the type, invalidating the restrictions.
+func cleanType(inputType schema.TypeID) schema.Type {
+	switch inputType {
+	case schema.TypeIDInt:
+		return schema.NewIntSchema(nil, nil, nil)
+	case schema.TypeIDFloat:
+		return schema.NewFloatSchema(nil, nil, nil)
+	case schema.TypeIDString:
+		return schema.NewStringSchema(nil, nil, nil)
+	default:
+		panic(fmt.Errorf("bug: case missing from cleanType: %s", inputType))
+	}
 }
 
 func validateValidBinaryOpTypes(
