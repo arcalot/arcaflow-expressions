@@ -164,7 +164,9 @@ func (p *Parser) parseStringLiteral() (*StringLiteral, error) {
 	// The literal token includes the "", so trim the ends off.
 	parsedString := p.currentToken.Value[1 : len(p.currentToken.Value)-1]
 	// Replace escaped characters
-	parsedString = escapeReplacer.Replace(parsedString)
+	if p.currentToken.TokenID != RawStringLiteralToken {
+		parsedString = escapeReplacer.Replace(parsedString)
+	}
 	// Now create the literal itself and advance the token.
 	literal := &StringLiteral{StrValue: parsedString}
 	err := p.advanceToken()
@@ -495,7 +497,7 @@ func (p *Parser) parseNegationOperation() (Node, error) {
 	return p.parseLeftUnaryExpression([]TokenID{NegationToken}, p.parseValueOrAccessExpression)
 }
 
-var literalTokens = []TokenID{StringLiteralToken, IntLiteralToken, BooleanLiteralToken, FloatLiteralToken}
+var literalTokens = []TokenID{StringLiteralToken, RawStringLiteralToken, IntLiteralToken, BooleanLiteralToken, FloatLiteralToken}
 var identifierTokens = []TokenID{IdentifierToken, RootAccessToken}
 var validRootValueOrAccessStartTokens = append(literalTokens, identifierTokens...)
 var validValueOrAccessStartTokens = append(validRootValueOrAccessStartTokens, CurrentObjectAccessToken)
@@ -515,7 +517,7 @@ func (p *Parser) parseValueOrAccessExpression() (Node, error) {
 	// A value or access expression can start with a literal, or an identifier.
 	// If an identifier, it can lead to a chain or a function.
 	switch p.currentToken.TokenID {
-	case StringLiteralToken:
+	case StringLiteralToken, RawStringLiteralToken:
 		literalNode, err = p.parseStringLiteral()
 	case IntLiteralToken:
 		literalNode, err = p.parseIntLiteral()

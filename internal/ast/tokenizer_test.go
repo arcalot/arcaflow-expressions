@@ -216,7 +216,7 @@ func TestTokenizer_BooleanLiterals(t *testing.T) {
 }
 
 func TestTokenizer_StringLiteral(t *testing.T) {
-	input := `"" "a" "a\"b"`
+	input := `"" "a" "a\"b"` + " `raw_str/\\`"
 	tokenizer := initTokenizer(input, filename)
 	assert.Equals(t, tokenizer.hasNextToken(), true)
 	tokenVal, err := tokenizer.getNext()
@@ -233,6 +233,11 @@ func TestTokenizer_StringLiteral(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equals(t, tokenVal.TokenID, StringLiteralToken)
 	assert.Equals(t, tokenVal.Value, `"a\"b"`)
+	assert.Equals(t, tokenizer.hasNextToken(), true)
+	tokenVal, err = tokenizer.getNext()
+	assert.NoError(t, err)
+	assert.Equals(t, tokenVal.TokenID, RawStringLiteralToken)
+	assert.Equals(t, tokenVal.Value, "`raw_str/\\`")
 	assert.Equals(t, tokenizer.hasNextToken(), false)
 }
 

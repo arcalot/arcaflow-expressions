@@ -16,7 +16,8 @@ const (
 	// Supports the string format used in golang, and will include
 	// the " before and after the contents of the string.
 	// Characters can be escaped the common way with a backslash.
-	StringLiteralToken TokenID = "string"
+	StringLiteralToken    TokenID = "string"
+	RawStringLiteralToken TokenID = "raw-string"
 	// IntLiteralToken represents an integer token. Must not start with 0.
 	IntLiteralToken TokenID = "int"
 	// FloatLiteralToken represents a float token.
@@ -108,7 +109,8 @@ var tokenPatterns = []tokenPattern{
 	{FloatLiteralToken, regexp.MustCompile(`^\d+\.\d*(?:[eE][+-]?\d+)?$`)}, // Like an integer, but with a period and digits after.
 	{IntLiteralToken, regexp.MustCompile(`^(?:0|[1-9]\d*)$`)},              // Note: numbers that start with 0 are identifiers.
 	{IdentifierToken, regexp.MustCompile(`^\w+$`)},                         // Any valid object name
-	{StringLiteralToken, regexp.MustCompile(`^(?:".*"|'.*')$`)},            // "string example"
+	{StringLiteralToken, regexp.MustCompile(`^(?:".*"|'.*')$`)},            // "string example" 'alternative'
+	{RawStringLiteralToken, regexp.MustCompile("^`.*`$")},                  // `raw string`
 	{BracketAccessDelimiterStartToken, regexp.MustCompile(`^\[$`)},         // the [ in map["key"]
 	{BracketAccessDelimiterEndToken, regexp.MustCompile(`^]$`)},            // the ] in map["key"]
 	{ParenthesesStartToken, regexp.MustCompile(`^\($`)},                    // (

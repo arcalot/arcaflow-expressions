@@ -1,6 +1,9 @@
 package expressions_test
 
-import "go.flow.arcalot.io/pluginsdk/schema"
+import (
+	"go.flow.arcalot.io/pluginsdk/schema"
+	"regexp"
+)
 
 var testScope = schema.NewScopeSchema(
 	schema.NewObjectSchema(
@@ -49,6 +52,16 @@ var testScope = schema.NewScopeSchema(
 			),
 			"simple_str": schema.NewPropertySchema(
 				schema.NewStringSchema(nil, nil, nil),
+				nil,
+				true,
+				nil,
+				nil,
+				nil,
+				nil,
+				nil,
+			),
+			"restrictive_str": schema.NewPropertySchema(
+				schema.NewStringSchema(nil, nil, regexp.MustCompile(`^a$`)),
 				nil,
 				true,
 				nil,
