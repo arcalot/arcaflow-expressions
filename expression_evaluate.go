@@ -252,7 +252,7 @@ func (c evaluateContext) evaluateBracketAccessor(node *ast.BracketAccessor, data
 	if err != nil {
 		return nil, err
 	}
-	return evaluateMapAccess(data, mapKey)
+	return evaluateMapAccess(leftResult, mapKey)
 }
 
 // Evaluates an identifier

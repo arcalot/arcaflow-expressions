@@ -569,3 +569,12 @@ func TestDependencyResolution_TestMixedOperations(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equals(t, len(paths), 0)
 }
+
+func TestDependencyResolution_Error_InvalidListIndexType(t *testing.T) {
+	// Test using string for an index, which is invalid.
+	expr, err := expressions.New(`$.int_list["this is a string"]`)
+	assert.NoError(t, err)
+	_, err = expr.Dependencies(testScope, nil, nil, fullDataRequirements)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "integer expected")
+}

@@ -375,6 +375,9 @@ func (c *dependencyContext) bracketAccessorDependencies(
 			currentType.TypeID(),
 		)
 	}
+	if err != nil {
+		return nil, err
+	}
 	// For literals, add key data.
 	overallResult.chainablePath = c.addKeyNode(node.RightExpression, overallResult.chainablePath)
 	overallResult.addCompletedDependencies(mergedDependencies)
