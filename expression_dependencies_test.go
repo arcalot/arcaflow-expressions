@@ -128,7 +128,6 @@ func TestDependencyResolution(t *testing.T) {
 				} else {
 					assert.Equals(t, pathWithoutExtra[0].String(), "$.int_list")
 				}
-
 			})
 
 			t.Run("list-subexpr-key", func(t *testing.T) {

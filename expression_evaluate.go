@@ -294,6 +294,9 @@ func evaluateMapAccess(data any, mapKey any) (any, error) {
 		if sliceLen <= sliceIndex {
 			return nil, fmt.Errorf("index %d is larger than the list items length (%d)", sliceIndex, sliceLen)
 		}
+		if sliceIndex < 0 {
+			return nil, fmt.Errorf("invalid index (%d); must be non-negative integer", sliceIndex)
+		}
 		indexValue := dataVal.Index(sliceIndex)
 		return indexValue.Interface(), nil
 	default:
