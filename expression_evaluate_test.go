@@ -170,12 +170,22 @@ var testData = map[string]struct {
 		false,
 		"b",
 	},
-	"list-access-error-negative": {
+	"list-access-negative": {
 		[]string{
 			"a",
 		},
 		nil,
 		"$[-1]",
+		false,
+		false,
+		"a",
+	},
+	"list-access-error-negative-out-of-bounds": {
+		[]string{
+			"a",
+		},
+		nil,
+		"$[-2]",
 		false,
 		true,
 		nil,

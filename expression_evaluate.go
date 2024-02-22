@@ -291,11 +291,13 @@ func evaluateMapAccess(data any, mapKey any) (any, error) {
 			return nil, fmt.Errorf("int64 %d specified is too large for a slice index on the current system", asInt64)
 		}
 		sliceLen := dataVal.Len()
-		if sliceLen <= sliceIndex {
+		if sliceIndex >= sliceLen {
 			return nil, fmt.Errorf("index %d is larger than the list items length (%d)", sliceIndex, sliceLen)
+		} else if sliceIndex < -sliceLen {
+			return nil, fmt.Errorf("negative index %d is larger than the list items length (%d)", sliceIndex, sliceLen)
 		}
 		if sliceIndex < 0 {
-			return nil, fmt.Errorf("invalid index (%d); must be non-negative integer", sliceIndex)
+			sliceIndex = sliceLen + sliceIndex
 		}
 		indexValue := dataVal.Index(sliceIndex)
 		return indexValue.Interface(), nil
