@@ -67,6 +67,14 @@ func TestTypeEvaluation(t *testing.T) {
 		assert.Equals(t, resultType.TypeID(), schema.TypeIDInt)
 	})
 
+	t.Run("nested-list-item", func(t *testing.T) {
+		expr, err := expressions.New("$.foo.int_list[0]")
+		assert.NoError(t, err)
+		resultType, err := expr.Type(testScope, nil, nil)
+		assert.NoError(t, err)
+		assert.Equals(t, resultType.TypeID(), schema.TypeIDInt)
+	})
+
 	t.Run("any-schema", func(t *testing.T) {
 		expr, err := expressions.New("$.simple_any.a.b")
 		assert.NoError(t, err)

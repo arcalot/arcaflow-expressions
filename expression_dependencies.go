@@ -375,10 +375,13 @@ func (c *dependencyContext) bracketAccessorDependencies(
 			currentType.TypeID(),
 		)
 	}
+	if err != nil {
+		return nil, err
+	}
 	// For literals, add key data.
 	overallResult.chainablePath = c.addKeyNode(node.RightExpression, overallResult.chainablePath)
 	overallResult.addCompletedDependencies(mergedDependencies)
-	return overallResult, err
+	return overallResult, nil
 }
 
 // bracketMapDependencies is used to resolve dependencies when a bracket accessor has a subexpression,

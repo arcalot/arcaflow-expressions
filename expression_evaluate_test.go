@@ -132,7 +132,7 @@ var testData = map[string]struct {
 		false,
 		"Hello world!",
 	},
-	"list": {
+	"list-access-zero": {
 		[]string{
 			"Hello world!",
 		},
@@ -141,6 +141,74 @@ var testData = map[string]struct {
 		false,
 		false,
 		"Hello world!",
+	},
+	"list-access-positive": {
+		[]string{
+			"a",
+			"b",
+			"c",
+		},
+		nil,
+		"$[1]",
+		false,
+		false,
+		"b",
+	},
+	"list-access-nested": {
+		map[string]any{
+			"l1": map[string]any{
+				"l2": []string{
+					"a",
+					"b",
+					"c",
+				},
+			},
+		},
+		nil,
+		"$.l1.l2[1]",
+		false,
+		false,
+		"b",
+	},
+	"list-access-negative": {
+		[]string{
+			"a",
+		},
+		nil,
+		"$[-1]",
+		false,
+		false,
+		"a",
+	},
+	"list-access-error-negative-out-of-bounds": {
+		[]string{
+			"a",
+		},
+		nil,
+		"$[-2]",
+		false,
+		true,
+		nil,
+	},
+	"list-access-error-too-large": {
+		[]string{
+			"a",
+		},
+		nil,
+		"$[10]",
+		false,
+		true,
+		nil,
+	},
+	"list-access-error-invalid-type": {
+		[]string{
+			"a",
+		},
+		nil,
+		`$["0"]`,
+		false,
+		true,
+		nil,
 	},
 	"parameterless-void-func": {
 		[]any{},

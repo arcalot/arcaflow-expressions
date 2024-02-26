@@ -128,7 +128,6 @@ func TestDependencyResolution(t *testing.T) {
 				} else {
 					assert.Equals(t, pathWithoutExtra[0].String(), "$.int_list")
 				}
-
 			})
 
 			t.Run("list-subexpr-key", func(t *testing.T) {
@@ -568,4 +567,13 @@ func TestDependencyResolution_TestMixedOperations(t *testing.T) {
 	paths, err := expr.Dependencies(testScope, funcMap, nil, fullDataRequirements)
 	assert.NoError(t, err)
 	assert.Equals(t, len(paths), 0)
+}
+
+func TestDependencyResolution_Error_InvalidListIndexType(t *testing.T) {
+	// Test using string for an index, which is invalid.
+	expr, err := expressions.New(`$.int_list["this is a string"]`)
+	assert.NoError(t, err)
+	_, err = expr.Dependencies(testScope, nil, nil, fullDataRequirements)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "integer expected")
 }
