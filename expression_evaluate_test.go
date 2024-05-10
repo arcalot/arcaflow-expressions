@@ -110,6 +110,16 @@ var testData = map[string]struct {
 		false,
 		"Hello world!",
 	},
+	"with-whitespace": {
+		map[string]any{
+			"message": "Hello world!",
+		},
+		nil,
+		"   $.message    \n",
+		false,
+		false,
+		"Hello world!",
+	},
 	"sub1map": {
 		map[string]any{
 			"message": "Hello world!",

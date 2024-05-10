@@ -138,7 +138,8 @@ var tokenPatterns = []tokenPattern{
 // initTokenizer initializes the tokenizer struct with the given expression.
 func initTokenizer(expression string, sourceName string) *tokenizer {
 	var t tokenizer
-	t.reader = strings.NewReader(expression)
+	// Need to trim the whitespace first since that can cause unexpected blank tokens.
+	t.reader = strings.NewReader(strings.TrimSpace(expression))
 	t.s.Init(t.reader)
 	t.s.Filename = sourceName
 	return &t
