@@ -10,7 +10,8 @@ import (
 var filename = "example.go"
 
 func TestTokenizer(t *testing.T) {
-	input := `$.steps.read_kubeconfig.output["success"].credentials[f(1,2)]`
+	// Include trailing whitespace to ensure that it has no ill effects.
+	input := `$.steps.read_kubeconfig.output["success"].credentials[f(1,2)]   `
 	tokenizer := initTokenizer(input, filename)
 	expectedValue := []TokenValue{
 		{"$", RootAccessToken, filename, 1, 1},
