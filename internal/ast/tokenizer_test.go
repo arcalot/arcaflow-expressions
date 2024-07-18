@@ -218,7 +218,8 @@ func TestTokenizer_BooleanLiterals(t *testing.T) {
 }
 
 func TestTokenizer_TokenPrefixSuffixInvalid(t *testing.T) {
-	// Tests to ensure that boundaries are properly required
+	// This test checks that each of the input tokens are not recognized as boolean
+	// literals by checking that they are recognized, instead, as identifiers.
 	input := "atrue truea atruea afalse falsea afalsea"
 	expectedNumTokens := strings.Count(input, " ") + 1
 	tokenizer := initTokenizer(input, filename)
