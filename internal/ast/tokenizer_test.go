@@ -2,6 +2,7 @@ package ast
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"go.arcalot.io/assert"
@@ -214,6 +215,23 @@ func TestTokenizer_BooleanLiterals(t *testing.T) {
 	assert.Equals(t, tokenVal.TokenID, BooleanLiteralToken)
 	assert.Equals(t, tokenVal.Value, "false")
 	assert.Equals(t, tokenizer.hasNextToken(), false)
+}
+
+func TestTokenizer_TokenPrefixSuffixInvalid(t *testing.T) {
+	// This test checks that each of the input tokens are not recognized as boolean
+	// literals (due to their substrings) by checking that they are recognized,
+	// instead, as identifiers.
+	input := "atrue truea atruea afalse falsea afalsea"
+	expectedNumTokens := strings.Count(input, " ") + 1
+	tokenizer := initTokenizer(input, filename)
+	actualTokens := 0
+	for tokenizer.hasNextToken() {
+		actualTokens++
+		tokenVal, err := tokenizer.getNext()
+		assert.NoError(t, err)
+		assert.Equals(t, tokenVal.TokenID, IdentifierToken)
+	}
+	assert.Equals(t, actualTokens, expectedNumTokens)
 }
 
 func TestTokenizer_StringLiteral(t *testing.T) {
