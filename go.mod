@@ -4,4 +4,4 @@ go 1.21
 
 require go.arcalot.io/assert v1.8.0
 
-require go.flow.arcalot.io/pluginsdk v0.12.1
+require go.flow.arcalot.io/pluginsdk v0.12.5
