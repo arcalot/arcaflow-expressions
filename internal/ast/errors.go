@@ -22,17 +22,22 @@ type InvalidGrammarError struct {
 }
 
 func (e *InvalidGrammarError) Error() string {
-	errorMsg := fmt.Sprintf("Token %q of ID %q placed in invalid configuration in %q at line %d:%d.",
-		e.FoundToken.Value, e.FoundToken.TokenID, e.FoundToken.Filename, e.FoundToken.Line, e.FoundToken.Column)
+	var errorMsg string
+	if e.FoundToken != nil {
+		errorMsg = fmt.Sprintf("Token %q of ID %q placed in invalid configuration in %q at line %d:%d; ",
+			e.FoundToken.Value, e.FoundToken.TokenID, e.FoundToken.Filename, e.FoundToken.Line, e.FoundToken.Column)
+	} else {
+		errorMsg = "Expected token not found; "
+	}
 	switch {
 	case e.ExpectedTokens == nil:
-		errorMsg += " Expected end of expression."
+		errorMsg += "expected end of expression."
 	case len(e.ExpectedTokens) == 0:
-		errorMsg += " Expected any token."
+		errorMsg += "expected any token."
 	case len(e.ExpectedTokens) == 1:
-		errorMsg += fmt.Sprintf(" Expected token \"%v\"", e.ExpectedTokens[0])
+		errorMsg += fmt.Sprintf("expected token \"%v\"", e.ExpectedTokens[0])
 	default:
-		errorMsg += fmt.Sprintf(" Expected one of tokens \"%v\"", e.ExpectedTokens)
+		errorMsg += fmt.Sprintf("expected one of tokens \"%v\"", e.ExpectedTokens)
 	}
 
 	return errorMsg

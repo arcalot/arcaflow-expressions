@@ -396,6 +396,18 @@ func TestSubExpression(t *testing.T) {
 	assert.Equals(t, parsedRoot, root)
 }
 
+func TestParseExpression_Error_TrailingDot(t *testing.T) {
+	// Test error message for dot notation after literal.
+	expression := "$.a."
+	p, err := InitParser(expression, t.Name())
+
+	assert.NoError(t, err)
+
+	_, err = p.ParseExpression()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), `expected token "identifier"`)
+}
+
 func TestParseExpression_Error_BracketAfterLiteral(t *testing.T) {
 	// Test error message for bracket access after literal
 	expression := "0[0]"
