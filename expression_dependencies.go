@@ -483,7 +483,12 @@ func dependenciesAccessObject(
 		properties := currentObject.Properties()
 		property, ok := properties[identifier]
 		if !ok {
-			return nil, fmt.Errorf("object %s does not have a property named %q", currentObject.ID(), identifier)
+			propertiesMsg := ""
+			for property := range properties {
+				propertiesMsg += "\n - " + property
+			}
+			return nil, fmt.Errorf("object %s does not have a property named %q; properties:%s",
+				currentObject.ID(), identifier, propertiesMsg)
 		}
 		pathItem := &PathTree{
 			PathItem: identifier,
