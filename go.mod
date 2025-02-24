@@ -6,4 +6,4 @@ toolchain go1.23.5
 
 require go.arcalot.io/assert v1.8.0
 
-require go.flow.arcalot.io/pluginsdk v0.14.2
+require go.flow.arcalot.io/pluginsdk v0.14.3
