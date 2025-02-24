@@ -86,7 +86,6 @@ linters-settings:
           - github.com/fxamacker/cbor
   govet:
     enable-all: true
-    shadow: false
     disable:
       # We don't care about variable shadowing.
       - shadow
