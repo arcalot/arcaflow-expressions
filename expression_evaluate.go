@@ -170,7 +170,8 @@ func (c evaluateContext) evaluateUnaryOperation(node *ast.UnaryOperation) (any, 
 	if err != nil {
 		return nil, err
 	}
-	if node.LeftOperation == ast.Subtract {
+	switch node.LeftOperation {
+	case ast.Subtract:
 		switch right := rightEval.(type) {
 		case int64:
 			return -right, nil
@@ -179,13 +180,13 @@ func (c evaluateContext) evaluateUnaryOperation(node *ast.UnaryOperation) (any, 
 		default:
 			return nil, fmt.Errorf("unsupported type for arithmetic negation: %T; expected 64-bit int or float", right)
 		}
-	} else if node.LeftOperation == ast.Not {
+	case ast.Not:
 		booleanResult, isBool := rightEval.(bool)
 		if !isBool {
 			return nil, fmt.Errorf("unsupported type for boolean complement: %T; expected boolean", rightEval)
 		}
 		return !booleanResult, nil
-	} else {
+	default:
 		return nil, fmt.Errorf("only unary operators '-' and '!' are currently supported; got '%s'", node.LeftOperation)
 	}
 }

@@ -87,7 +87,7 @@ func (l *FloatLiteral) Value() interface{} {
 }
 
 // BooleanLiteral represents a boolean literal value in the abstract syntax
-// tree. true or false
+// tree, either true or false.
 type BooleanLiteral struct {
 	BooleanValue bool
 }
@@ -213,7 +213,7 @@ func (l *ArgumentList) GetChild(index int) (Node, error) {
 	return l.Arguments[index], nil
 }
 
-// String gives a comma-separated list of the arguments
+// String gives a comma-separated list of the arguments.
 func (l *ArgumentList) String() string {
 	if len(l.Arguments) == 0 {
 		return ""

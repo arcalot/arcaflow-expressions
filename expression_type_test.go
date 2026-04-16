@@ -10,78 +10,35 @@ import (
 )
 
 func TestTypeEvaluation(t *testing.T) {
-	t.Run("object", func(t *testing.T) {
-		expr, err := expressions.New("$.foo.bar")
-		assert.NoError(t, err)
-		resultType, err := expr.Type(testScope, nil, nil)
-		assert.NoError(t, err)
-		assert.Equals(t, resultType.TypeID(), schema.TypeIDString)
-	})
-
-	t.Run("map-accessor", func(t *testing.T) {
-		expr, err := expressions.New(`$.faz["abc"]`)
-		assert.NoError(t, err)
-		resultType, err := expr.Type(testScope, nil, nil)
-		assert.NoError(t, err)
-		// The value type of the map is object.
-		assert.Equals(t, resultType.TypeID(), schema.TypeIDObject)
-	})
-
-	t.Run("map", func(t *testing.T) {
-		expr, err := expressions.New("$.faz")
-		assert.NoError(t, err)
-		resultType, err := expr.Type(testScope, nil, nil)
-		assert.NoError(t, err)
-		assert.Equals(t, resultType.TypeID(), schema.TypeIDMap)
-	})
-
-	t.Run("subexpression-invalid", func(t *testing.T) {
-		expr, err := expressions.New("$.foo[$.faz.foo]")
-		assert.NoError(t, err)
-		_, err = expr.Type(testScope, nil, nil)
-		assert.Error(t, err)
-	})
-
-	t.Run("subexpression", func(t *testing.T) {
-		expr, err := expressions.New("$.faz[$.foo.bar]")
-		assert.NoError(t, err)
-		resultType, err := expr.Type(testScope, nil, nil)
-		assert.NoError(t, err)
-		assert.Equals(t, resultType.TypeID(), schema.TypeIDObject)
-
-	})
-
-	t.Run("list-value", func(t *testing.T) {
-		expr, err := expressions.New("$.int_list")
-		assert.NoError(t, err)
-		resultType, err := expr.Type(testScope, nil, nil)
-		assert.NoError(t, err)
-		assert.Equals(t, resultType.TypeID(), schema.TypeIDList)
-	})
-
-	t.Run("list-item", func(t *testing.T) {
-		expr, err := expressions.New("$.int_list[0]")
-		assert.NoError(t, err)
-		resultType, err := expr.Type(testScope, nil, nil)
-		assert.NoError(t, err)
-		assert.Equals(t, resultType.TypeID(), schema.TypeIDInt)
-	})
-
-	t.Run("nested-list-item", func(t *testing.T) {
-		expr, err := expressions.New("$.foo.int_list[0]")
-		assert.NoError(t, err)
-		resultType, err := expr.Type(testScope, nil, nil)
-		assert.NoError(t, err)
-		assert.Equals(t, resultType.TypeID(), schema.TypeIDInt)
-	})
-
-	t.Run("any-schema", func(t *testing.T) {
-		expr, err := expressions.New("$.simple_any.a.b")
-		assert.NoError(t, err)
-		resultType, err := expr.Type(testScope, nil, nil)
-		assert.NoError(t, err)
-		assert.Equals(t, resultType.TypeID(), schema.TypeIDAny)
-	})
+	tests := []struct {
+		name       string
+		expression string
+		expectErr  bool
+		expectedID schema.TypeID
+	}{
+		{"object", "$.foo.bar", false, schema.TypeIDString},
+		{"map-accessor", `$.faz["abc"]`, false, schema.TypeIDObject},
+		{"map", "$.faz", false, schema.TypeIDMap},
+		{"subexpression-invalid", "$.foo[$.faz.foo]", true, ""},
+		{"subexpression", "$.faz[$.foo.bar]", false, schema.TypeIDObject},
+		{"list-value", "$.int_list", false, schema.TypeIDList},
+		{"list-item", "$.int_list[0]", false, schema.TypeIDInt},
+		{"nested-list-item", "$.foo.int_list[0]", false, schema.TypeIDInt},
+		{"any-schema", "$.simple_any.a.b", false, schema.TypeIDAny},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			expr, err := expressions.New(tc.expression)
+			assert.NoError(t, err)
+			resultType, err := expr.Type(testScope, nil, nil)
+			if tc.expectErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equals(t, resultType.TypeID(), tc.expectedID)
+			}
+		})
+	}
 }
 
 func TestLiteralTypeResolution(t *testing.T) {

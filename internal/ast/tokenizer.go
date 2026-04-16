@@ -32,9 +32,9 @@ const (
 	// access. The '[' in 'obj["key"]'.
 	//nolint:gosec
 	BracketAccessDelimiterEndToken TokenID = "map-delimiter-end"
-	// ParenthesesStartToken represents the start token of an argument list or a parenthesized expression. '('
+	// ParenthesesStartToken represents the start token of an argument list or a parenthesized expression.
 	ParenthesesStartToken TokenID = "parentheses-start"
-	// ParenthesesEndToken represents the closing of the argument list. ')'
+	// ParenthesesEndToken represents the closing of the argument list.
 	ParenthesesEndToken TokenID = "parentheses-end"
 	// DotObjectAccessToken represents the '.' token in 'a.b' (dot notation).
 	DotObjectAccessToken TokenID = "object-access"
@@ -56,7 +56,7 @@ const (
 	NegationToken TokenID = "negation-sign"
 	// AsteriskToken represents a wildcard/multiplication token '*'.
 	AsteriskToken TokenID = "asterisk"
-	// ListSeparatorToken represents a comma in a parameter list
+	// ListSeparatorToken represents a comma in a parameter list.
 	ListSeparatorToken TokenID = "list-separator" //nolint:gosec // not a security credential
 	// DivideToken represents the forward slash used to specify division.
 	DivideToken TokenID = "divide"
@@ -72,9 +72,9 @@ const (
 	PowerToken TokenID = "power"
 	// ModulusToken represents a percent symbol for remainder.
 	ModulusToken TokenID = "mod"
-	// AndToken represents logical-and &&
+	// AndToken represents logical-and.
 	AndToken TokenID = "and"
-	// OrToken represents logical-or ||
+	// OrToken represents logical-or.
 	OrToken TokenID = "or"
 	// UnknownToken is a placeholder for when there was an error in the token.
 	UnknownToken TokenID = "error"
@@ -158,7 +158,7 @@ func (t *tokenizer) getNext() (*TokenValue, error) {
 	t.s.Scan()
 	tokenValue := t.s.TokenText()
 	for _, tokenPattern := range tokenPatterns {
-		if tokenPattern.Regexp.MatchString(tokenValue) {
+		if tokenPattern.MatchString(tokenValue) {
 			return &TokenValue{tokenValue, tokenPattern.TokenID, t.s.Filename, t.s.Line, t.s.Column}, nil
 		}
 	}

@@ -253,8 +253,9 @@ func TestPathTree_UnpackL3Excluded(t *testing.T) {
 	assert.SliceContainsExtractor(t, pathStrExtractor, "$.l2-b", treePaths)
 }
 
-func TestPathTree_UnpackManySubtrees(t *testing.T) {
-	pathTree := expressions.PathTree{
+// buildManySubtreesPathTree constructs a deeply nested PathTree for testing.
+func buildManySubtreesPathTree() expressions.PathTree {
+	return expressions.PathTree{
 		PathItem: "$",
 		NodeType: expressions.DataRootNode,
 		Subtrees: []*expressions.PathTree{
@@ -262,16 +263,8 @@ func TestPathTree_UnpackManySubtrees(t *testing.T) {
 				PathItem: "l2-a",
 				NodeType: expressions.AccessNode,
 				Subtrees: []*expressions.PathTree{
-					{
-						PathItem: "l3-a",
-						NodeType: expressions.AccessNode,
-						Subtrees: nil,
-					},
-					{
-						PathItem: "l3-b",
-						NodeType: expressions.AccessNode,
-						Subtrees: nil,
-					},
+					{PathItem: "l3-a", NodeType: expressions.AccessNode, Subtrees: nil},
+					{PathItem: "l3-b", NodeType: expressions.AccessNode, Subtrees: nil},
 				},
 			},
 			{
@@ -282,48 +275,38 @@ func TestPathTree_UnpackManySubtrees(t *testing.T) {
 						PathItem: "l3-a",
 						NodeType: expressions.AccessNode,
 						Subtrees: []*expressions.PathTree{
-							{
-								PathItem: "l4-a",
-								NodeType: expressions.AccessNode,
-								Subtrees: nil,
-							},
+							{PathItem: "l4-a", NodeType: expressions.AccessNode, Subtrees: nil},
 							{
 								PathItem: "l4-b",
 								NodeType: expressions.AccessNode,
 								Subtrees: []*expressions.PathTree{
-									{
-										PathItem: "l5-a",
-										NodeType: expressions.AccessNode,
-										Subtrees: nil,
-									},
-									{
-										PathItem: "l5-b",
-										NodeType: expressions.AccessNode,
-										Subtrees: nil,
-									},
+									{PathItem: "l5-a", NodeType: expressions.AccessNode, Subtrees: nil},
+									{PathItem: "l5-b", NodeType: expressions.AccessNode, Subtrees: nil},
 								},
 							},
 						},
 					},
-					{
-						PathItem: "l3-b",
-						NodeType: expressions.AccessNode,
-						Subtrees: nil,
-					},
+					{PathItem: "l3-b", NodeType: expressions.AccessNode, Subtrees: nil},
 				},
 			},
 		},
 	}
+}
+
+func TestPathTree_UnpackManySubtrees(t *testing.T) {
+	pathTree := buildManySubtreesPathTree()
 	defaultRequirements := expressions.UnpackRequirements{}
 
 	funcTreePaths := pathTree.Unpack(defaultRequirements)
 	assert.Equals(t, len(funcTreePaths), 6)
-	assert.SliceContainsExtractor(t, pathStrExtractor, "$.l2-a.l3-a", funcTreePaths)
-	assert.SliceContainsExtractor(t, pathStrExtractor, "$.l2-a.l3-b", funcTreePaths)
-	assert.SliceContainsExtractor(t, pathStrExtractor, "$.l2-b.l3-a.l4-a", funcTreePaths)
-	assert.SliceContainsExtractor(t, pathStrExtractor, "$.l2-b.l3-a.l4-b.l5-a", funcTreePaths)
-	assert.SliceContainsExtractor(t, pathStrExtractor, "$.l2-b.l3-a.l4-b.l5-b", funcTreePaths)
-	assert.SliceContainsExtractor(t, pathStrExtractor, "$.l2-b.l3-b", funcTreePaths)
+	expectedPaths := []string{
+		"$.l2-a.l3-a", "$.l2-a.l3-b",
+		"$.l2-b.l3-a.l4-a", "$.l2-b.l3-a.l4-b.l5-a",
+		"$.l2-b.l3-a.l4-b.l5-b", "$.l2-b.l3-b",
+	}
+	for _, expected := range expectedPaths {
+		assert.SliceContainsExtractor(t, pathStrExtractor, expected, funcTreePaths)
+	}
 }
 
 func TestPathTree_ErrorUnpackInvalidType(t *testing.T) {

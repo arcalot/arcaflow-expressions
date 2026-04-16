@@ -1,8 +1,6 @@
 module go.flow.arcalot.io/expressions
 
-go 1.23.0
-
-toolchain go1.23.5
+go 1.25
 
 require go.arcalot.io/assert v1.8.0
 

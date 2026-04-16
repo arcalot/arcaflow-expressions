@@ -8,6 +8,8 @@ import (
 	"go.flow.arcalot.io/pluginsdk/schema"
 )
 
+const anySchemaName = "any"
+
 var noKeyOrPastTerminalRequirements = expressions.UnpackRequirements{
 	ExcludeDataRootPaths:     false,
 	ExcludeFunctionRootPaths: true,
@@ -27,119 +29,114 @@ var withFunctionsRequirements = expressions.UnpackRequirements{
 	IncludeKeys:              true,
 }
 
+func runDependencyAccessSubtests(t *testing.T, name string, schemaType schema.Type) {
+	t.Helper()
+	t.Run("object", func(t *testing.T) {
+		expr, err := expressions.New("$.foo.bar")
+		assert.NoError(t, err)
+		path, err := expr.Dependencies(schemaType, nil, nil, fullDataRequirements)
+		assert.NoError(t, err)
+		assert.Equals(t, len(path), 1)
+		assert.Equals(t, path[0].String(), "$.foo.bar")
+		pathWithoutExtra, err := expr.Dependencies(schemaType, nil, nil, noKeyOrPastTerminalRequirements)
+		assert.NoError(t, err)
+		if name == anySchemaName {
+			assert.Equals(t, pathWithoutExtra[0].String(), "$")
+		} else {
+			assert.Equals(t, pathWithoutExtra[0].String(), "$.foo.bar")
+		}
+	})
+	t.Run("map-accessor", func(t *testing.T) {
+		expr, err := expressions.New("$[\"foo\"].bar")
+		assert.NoError(t, err)
+		paths, err := expr.Dependencies(schemaType, nil, nil, fullDataRequirements)
+		if name == anySchemaName {
+			assert.NoError(t, err)
+			assert.Equals(t, len(paths), 1)
+			assert.Equals(t, paths[0].String(), "$.foo.bar")
+		} else {
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), "not supported for object/scope/ref")
+		}
+	})
+	t.Run("map", func(t *testing.T) {
+		expr, err := expressions.New("$.faz")
+		assert.NoError(t, err)
+		path, err := expr.Dependencies(schemaType, nil, nil, fullDataRequirements)
+		assert.NoError(t, err)
+		assert.Equals(t, len(path), 1)
+		assert.Equals(t, path[0].String(), "$.faz")
+	})
+	t.Run("map-subkey", func(t *testing.T) {
+		expr, err := expressions.New(`$.faz["foo"]`)
+		assert.NoError(t, err)
+		path, err := expr.Dependencies(schemaType, nil, nil, fullDataRequirements)
+		assert.NoError(t, err)
+		assert.Equals(t, len(path), 1)
+		assert.Equals(t, path[0].String(), "$.faz.foo")
+	})
+}
+
+func runDependencySubexprSubtests(t *testing.T, name string, schemaType schema.Type) {
+	t.Helper()
+	t.Run("subexpression-invalid", func(t *testing.T) {
+		expr, err := expressions.New("$.foo[$.faz.foo]")
+		assert.NoError(t, err)
+		path, err := expr.Dependencies(schemaType, nil, nil, fullDataRequirements)
+		if name == "scope" {
+			assert.Error(t, err)
+		} else {
+			assert.NoError(t, err)
+			assert.Equals(t, len(path), 2)
+			assert.SliceContainsExtractor(t, pathStrExtractor, "$.foo", path)
+			assert.SliceContainsExtractor(t, pathStrExtractor, "$.faz.foo", path)
+		}
+	})
+	t.Run("subexpression", func(t *testing.T) {
+		expr, err := expressions.New("$.faz[$.foo.bar]")
+		assert.NoError(t, err)
+		path, err := expr.Dependencies(schemaType, nil, nil, fullDataRequirements)
+		assert.NoError(t, err)
+		assert.Equals(t, len(path), 2)
+		assert.SliceContainsExtractor(t, pathStrExtractor, "$.faz", path)
+		assert.SliceContainsExtractor(t, pathStrExtractor, "$.foo.bar", path)
+	})
+	t.Run("list-literal-key", func(t *testing.T) {
+		expr, err := expressions.New("$.int_list[0]")
+		assert.NoError(t, err)
+		pathWithExtra, err := expr.Dependencies(schemaType, nil, nil, fullDataRequirements)
+		assert.NoError(t, err)
+		assert.Equals(t, len(pathWithExtra), 1)
+		assert.Equals(t, pathWithExtra[0].String(), "$.int_list.0")
+		pathWithoutExtra, err := expr.Dependencies(schemaType, nil, nil, noKeyOrPastTerminalRequirements)
+		assert.NoError(t, err)
+		assert.Equals(t, len(pathWithoutExtra), 1)
+		if name == anySchemaName {
+			assert.Equals(t, pathWithoutExtra[0].String(), "$")
+		} else {
+			assert.Equals(t, pathWithoutExtra[0].String(), "$.int_list")
+		}
+	})
+	t.Run("list-subexpr-key", func(t *testing.T) {
+		expr, err := expressions.New("$.int_list[$.simple_int]")
+		assert.NoError(t, err)
+		pathWithExtra, err := expr.Dependencies(schemaType, nil, nil, fullDataRequirements)
+		assert.NoError(t, err)
+		assert.Equals(t, len(pathWithExtra), 2)
+		assert.SliceContainsExtractor(t, pathStrExtractor, "$.int_list", pathWithExtra)
+		assert.SliceContainsExtractor(t, pathStrExtractor, "$.simple_int", pathWithExtra)
+	})
+}
+
 func TestDependencyResolution(t *testing.T) {
 	scopes := map[string]schema.Type{
-		"scope": testScope,
-		"any":   schema.NewAnySchema(),
+		"scope":       testScope,
+		anySchemaName: schema.NewAnySchema(),
 	}
-
-	// All of these can apply to multiple types, so we'll iterate over the possibilities.
 	for name, schemaType := range scopes {
-		name := name
-		schemaType := schemaType
 		t.Run(name, func(t *testing.T) {
-			t.Run("object", func(t *testing.T) {
-				expr, err := expressions.New("$.foo.bar")
-				assert.NoError(t, err)
-				path, err := expr.Dependencies(schemaType, nil, nil, fullDataRequirements)
-				assert.NoError(t, err)
-				assert.Equals(t, len(path), 1)
-				assert.Equals(t, path[0].String(), "$.foo.bar")
-				pathWithoutExtra, err := expr.Dependencies(schemaType, nil, nil, noKeyOrPastTerminalRequirements)
-				assert.NoError(t, err)
-				if name == "any" {
-					assert.Equals(t, pathWithoutExtra[0].String(), "$")
-				} else {
-					assert.Equals(t, pathWithoutExtra[0].String(), "$.foo.bar")
-				}
-			})
-
-			t.Run("map-accessor", func(t *testing.T) {
-				expr, err := expressions.New("$[\"foo\"].bar")
-				assert.NoError(t, err)
-				paths, err := expr.Dependencies(schemaType, nil, nil, fullDataRequirements)
-				if name == "any" {
-					// There isn't enough info to say this for an any type, but we set in the requirements
-					// to include past-terminal (any) data types.
-					assert.NoError(t, err)
-					assert.Equals(t, len(paths), 1)
-					assert.Equals(t, paths[0].String(), "$.foo.bar")
-				} else {
-					assert.Error(t, err)
-					assert.Contains(t, err.Error(), "not supported for object/scope/ref")
-				}
-			})
-
-			t.Run("map", func(t *testing.T) {
-				expr, err := expressions.New("$.faz")
-				assert.NoError(t, err)
-				path, err := expr.Dependencies(schemaType, nil, nil, fullDataRequirements)
-				assert.NoError(t, err)
-				assert.Equals(t, len(path), 1)
-				assert.Equals(t, path[0].String(), "$.faz")
-			})
-
-			t.Run("map-subkey", func(t *testing.T) {
-				expr, err := expressions.New(`$.faz["foo"]`)
-				assert.NoError(t, err)
-				path, err := expr.Dependencies(schemaType, nil, nil, fullDataRequirements)
-				assert.NoError(t, err)
-				assert.Equals(t, len(path), 1)
-				assert.Equals(t, path[0].String(), "$.faz.foo")
-			})
-			t.Run("subexpression-invalid", func(t *testing.T) {
-				expr, err := expressions.New("$.foo[$.faz.foo]")
-				assert.NoError(t, err)
-				path, err := expr.Dependencies(schemaType, nil, nil, fullDataRequirements)
-				if name == "scope" {
-					assert.Error(t, err)
-				} else {
-					assert.NoError(t, err)
-					// Order isn't deterministic, so use contains and length validations.
-					assert.Equals(t, len(path), 2)
-					assert.SliceContainsExtractor(t, pathStrExtractor, "$.foo", path)
-					assert.SliceContainsExtractor(t, pathStrExtractor, "$.faz.foo", path)
-				}
-			})
-
-			t.Run("subexpression", func(t *testing.T) {
-				expr, err := expressions.New("$.faz[$.foo.bar]")
-				assert.NoError(t, err)
-				path, err := expr.Dependencies(schemaType, nil, nil, fullDataRequirements)
-				assert.NoError(t, err)
-				// Order isn't deterministic, so use contains and length validations.
-				assert.Equals(t, len(path), 2)
-				assert.SliceContainsExtractor(t, pathStrExtractor, "$.faz", path)
-				assert.SliceContainsExtractor(t, pathStrExtractor, "$.foo.bar", path)
-			})
-
-			t.Run("list-literal-key", func(t *testing.T) {
-				expr, err := expressions.New("$.int_list[0]")
-				assert.NoError(t, err)
-				pathWithExtra, err := expr.Dependencies(schemaType, nil, nil, fullDataRequirements)
-				assert.NoError(t, err)
-				assert.Equals(t, len(pathWithExtra), 1)
-				assert.Equals(t, pathWithExtra[0].String(), "$.int_list.0")
-				pathWithoutExtra, err := expr.Dependencies(schemaType, nil, nil, noKeyOrPastTerminalRequirements)
-				assert.NoError(t, err)
-				assert.Equals(t, len(pathWithoutExtra), 1)
-				if name == "any" {
-					assert.Equals(t, pathWithoutExtra[0].String(), "$")
-				} else {
-					assert.Equals(t, pathWithoutExtra[0].String(), "$.int_list")
-				}
-			})
-
-			t.Run("list-subexpr-key", func(t *testing.T) {
-				expr, err := expressions.New("$.int_list[$.simple_int]")
-				assert.NoError(t, err)
-				pathWithExtra, err := expr.Dependencies(schemaType, nil, nil, fullDataRequirements)
-				assert.NoError(t, err)
-				assert.Equals(t, len(pathWithExtra), 2)
-				assert.SliceContainsExtractor(t, pathStrExtractor, "$.int_list", pathWithExtra)
-				assert.SliceContainsExtractor(t, pathStrExtractor, "$.simple_int", pathWithExtra)
-
-			})
+			runDependencyAccessSubtests(t, name, schemaType)
+			runDependencySubexprSubtests(t, name, schemaType)
 		})
 	}
 }

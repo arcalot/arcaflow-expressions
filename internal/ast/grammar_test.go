@@ -1,4 +1,4 @@
-package ast
+package ast_test
 
 import (
 	"errors"
@@ -6,25 +6,26 @@ import (
 	"testing"
 
 	"go.arcalot.io/assert"
+	"go.flow.arcalot.io/expressions/internal/ast"
 )
 
 func TestIdentifierParser(t *testing.T) {
 	identifierName := "abc"
 
 	// Create parser
-	p, err := InitParser(identifierName, t.Name())
+	p, err := ast.InitParser(identifierName, t.Name())
 
 	assert.NoError(t, err)
-	assert.NoError(t, p.advanceToken())
+	assert.NoError(t, p.AdvanceTokenForTest())
 
-	identifierResult, err := p.parseIdentifier()
+	identifierResult, err := p.ParseIdentifierForTest()
 
 	assert.NoError(t, err)
 	assert.Equals(t, identifierName, identifierResult.IdentifierName)
 
 	// No tokens left, so should error out
 
-	_, err = p.parseIdentifier()
+	_, err = p.ParseIdentifierForTest()
 	assert.Error(t, err)
 }
 
@@ -32,12 +33,12 @@ func TestIdentifierParserInvalidToken(t *testing.T) {
 	identifierName := "["
 
 	// Create parser
-	p, err := InitParser(identifierName, t.Name())
+	p, err := ast.InitParser(identifierName, t.Name())
 
 	assert.NoError(t, err)
-	assert.NoError(t, p.advanceToken())
+	assert.NoError(t, p.AdvanceTokenForTest())
 
-	_, err = p.parseIdentifier()
+	_, err = p.ParseIdentifierForTest()
 
 	assert.Error(t, err)
 }
@@ -47,24 +48,24 @@ func TestMapAccessParser(t *testing.T) {
 	expression := "[0]['a']"
 
 	// Create parser
-	p, err := InitParser(expression, t.Name())
+	p, err := ast.InitParser(expression, t.Name())
 
 	assert.NoError(t, err)
-	assert.NoError(t, p.advanceToken())
+	assert.NoError(t, p.AdvanceTokenForTest())
 
-	mapResult, err := p.parseBracketAccess(&Identifier{IdentifierName: "a"})
-
-	assert.NoError(t, err)
-	assert.Equals[Node](t, mapResult.RightExpression, &IntLiteral{IntValue: int64(0)})
-	assert.InstanceOf[ValueLiteral](t, mapResult.RightExpression)
-	assert.Equals(t, mapResult.RightExpression.(ValueLiteral).Value().(int64), int64(0))
-
-	mapResult, err = p.parseBracketAccess(&Identifier{IdentifierName: "a"})
+	mapResult, err := p.ParseBracketAccessForTest(&ast.Identifier{IdentifierName: "a"})
 
 	assert.NoError(t, err)
-	assert.Equals[Node](t, mapResult.RightExpression, &StringLiteral{StrValue: "a"})
-	assert.InstanceOf[ValueLiteral](t, mapResult.RightExpression)
-	assert.Equals(t, mapResult.RightExpression.(ValueLiteral).Value(), "a")
+	assert.Equals[ast.Node](t, mapResult.RightExpression, &ast.IntLiteral{IntValue: int64(0)})
+	assert.InstanceOf[ast.ValueLiteral](t, mapResult.RightExpression)
+	assert.Equals(t, mapResult.RightExpression.(ast.ValueLiteral).Value().(int64), int64(0))
+
+	mapResult, err = p.ParseBracketAccessForTest(&ast.Identifier{IdentifierName: "a"})
+
+	assert.NoError(t, err)
+	assert.Equals[ast.Node](t, mapResult.RightExpression, &ast.StringLiteral{StrValue: "a"})
+	assert.InstanceOf[ast.ValueLiteral](t, mapResult.RightExpression)
+	assert.Equals(t, mapResult.RightExpression.(ast.ValueLiteral).Value(), "a")
 
 	// Test left and right functions
 	assert.Equals(t, mapResult.Right(), mapResult.RightExpression)
@@ -72,7 +73,7 @@ func TestMapAccessParser(t *testing.T) {
 
 	// No tokens left, so should error out
 
-	_, err = p.parseIdentifier()
+	_, err = p.ParseIdentifierForTest()
 	assert.Error(t, err)
 }
 
@@ -81,12 +82,12 @@ func TestParseBracketAccessInvalidParam(t *testing.T) {
 	identifierName := "[0]"
 
 	// Create parser
-	p, err := InitParser(identifierName, t.Name())
+	p, err := ast.InitParser(identifierName, t.Name())
 
 	assert.NoError(t, err)
-	assert.NoError(t, p.advanceToken())
+	assert.NoError(t, p.AdvanceTokenForTest())
 
-	_, err = p.parseBracketAccess(nil)
+	_, err = p.ParseBracketAccessForTest(nil)
 
 	assert.Error(t, err)
 }
@@ -96,12 +97,12 @@ func TestParseBracketAccessInvalidPrefixToken(t *testing.T) {
 	identifierName := "]0]"
 
 	// Create parser
-	p, err := InitParser(identifierName, t.Name())
+	p, err := ast.InitParser(identifierName, t.Name())
 
 	assert.NoError(t, err)
-	assert.NoError(t, p.advanceToken())
+	assert.NoError(t, p.AdvanceTokenForTest())
 
-	_, err = p.parseBracketAccess(&Identifier{IdentifierName: "a"})
+	_, err = p.ParseBracketAccessForTest(&ast.Identifier{IdentifierName: "a"})
 
 	assert.Error(t, err)
 }
@@ -110,12 +111,12 @@ func TestParseBracketAccessInvalidKey(t *testing.T) {
 	identifierName := "[0["
 
 	// Create parser
-	p, err := InitParser(identifierName, t.Name())
+	p, err := ast.InitParser(identifierName, t.Name())
 
 	assert.NoError(t, err)
-	assert.NoError(t, p.advanceToken())
+	assert.NoError(t, p.AdvanceTokenForTest())
 
-	_, err = p.parseBracketAccess(&Identifier{IdentifierName: "a"})
+	_, err = p.ParseBracketAccessForTest(&ast.Identifier{IdentifierName: "a"})
 
 	assert.Error(t, err)
 }
@@ -125,12 +126,12 @@ func TestRootVar(t *testing.T) {
 	expression := "$.test"
 
 	// $.test
-	root := &DotNotation{}
-	root.LeftAccessibleNode = &Identifier{IdentifierName: "$"}
-	root.RightAccessIdentifier = &Identifier{IdentifierName: "test"}
+	root := &ast.DotNotation{}
+	root.LeftAccessibleNode = &ast.Identifier{IdentifierName: "$"}
+	root.RightAccessIdentifier = &ast.Identifier{IdentifierName: "test"}
 
 	// Create parser
-	p, err := InitParser(expression, t.Name())
+	p, err := ast.InitParser(expression, t.Name())
 
 	assert.NoError(t, err)
 
@@ -141,7 +142,7 @@ func TestRootVar(t *testing.T) {
 
 	assert.Equals(t, expression, root.String())
 
-	parsedRoot, ok := parsedResult.(*DotNotation)
+	parsedRoot, ok := parsedResult.(*ast.DotNotation)
 	if !ok {
 		t.Fatalf("Output is not of type *DotNotation")
 	}
@@ -152,7 +153,7 @@ func TestRootStrLiteral(t *testing.T) {
 	expression := `"test"`
 
 	// Create parser
-	p, err := InitParser(expression, t.Name())
+	p, err := ast.InitParser(expression, t.Name())
 
 	assert.NoError(t, err)
 
@@ -160,24 +161,24 @@ func TestRootStrLiteral(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, parsedResult)
-	assert.InstanceOf[*StringLiteral](t, parsedResult)
-	assert.Equals(t, parsedResult.(*StringLiteral).StrValue, "test")
+	assert.InstanceOf[*ast.StringLiteral](t, parsedResult)
+	assert.Equals(t, parsedResult.(*ast.StringLiteral).StrValue, "test")
 }
 
 func TestDotNotation(t *testing.T) {
 	expression := "$.parent.child"
 
 	// level2: $.parent
-	level2 := &DotNotation{}
-	level2.LeftAccessibleNode = &Identifier{IdentifierName: "$"}
-	level2.RightAccessIdentifier = &Identifier{IdentifierName: "parent"}
+	level2 := &ast.DotNotation{}
+	level2.LeftAccessibleNode = &ast.Identifier{IdentifierName: "$"}
+	level2.RightAccessIdentifier = &ast.Identifier{IdentifierName: "parent"}
 	// root: <level2>.child
-	root := &DotNotation{}
+	root := &ast.DotNotation{}
 	root.LeftAccessibleNode = level2
-	root.RightAccessIdentifier = &Identifier{IdentifierName: "child"}
+	root.RightAccessIdentifier = &ast.Identifier{IdentifierName: "child"}
 
 	// Create parser
-	p, err := InitParser(expression, t.Name())
+	p, err := ast.InitParser(expression, t.Name())
 
 	assert.NoError(t, err)
 
@@ -188,7 +189,7 @@ func TestDotNotation(t *testing.T) {
 
 	assert.Equals(t, expression, root.String())
 
-	parsedRoot, ok := parsedResult.(*DotNotation)
+	parsedRoot, ok := parsedResult.(*ast.DotNotation)
 	if !ok {
 		t.Fatalf("Output is not of type *DotNotation")
 	}
@@ -199,16 +200,16 @@ func TestMapAccess(t *testing.T) {
 	expression := `$.map["key"]`
 
 	// level2: $.map
-	level2 := &DotNotation{}
-	level2.LeftAccessibleNode = &Identifier{IdentifierName: "$"}
-	level2.RightAccessIdentifier = &Identifier{IdentifierName: "map"}
+	level2 := &ast.DotNotation{}
+	level2.LeftAccessibleNode = &ast.Identifier{IdentifierName: "$"}
+	level2.RightAccessIdentifier = &ast.Identifier{IdentifierName: "map"}
 	// root: <level2>.["key"]
-	root := &BracketAccessor{}
+	root := &ast.BracketAccessor{}
 	root.LeftNode = level2
-	root.RightExpression = &StringLiteral{StrValue: "key"}
+	root.RightExpression = &ast.StringLiteral{StrValue: "key"}
 
 	// Create parser
-	p, err := InitParser(expression, t.Name())
+	p, err := ast.InitParser(expression, t.Name())
 
 	assert.NoError(t, err)
 
@@ -219,116 +220,99 @@ func TestMapAccess(t *testing.T) {
 
 	assert.Equals(t, expression, root.String())
 
-	parsedRoot, ok := parsedResult.(*BracketAccessor)
+	parsedRoot, ok := parsedResult.(*ast.BracketAccessor)
 	if !ok {
 		t.Fatalf("Output is not of type *BracketAccessor")
 	}
 	assert.Equals(t, parsedRoot, root)
+}
+
+// assertParseExpression is a helper that parses the given expression and verifies
+// the result matches the expected AST node and its string representation.
+func assertParseExpression(t *testing.T, expression string, expectedRoot ast.Node) {
+	t.Helper()
+	p, err := ast.InitParser(expression, t.Name())
+	assert.NoError(t, err)
+
+	parsedResult, err := p.ParseExpression()
+	assert.NoError(t, err)
+	assert.NotNil(t, parsedResult)
+
+	assert.Equals(t, expression, expectedRoot.String())
+	assert.Equals(t, parsedResult.String(), expectedRoot.String())
 }
 
 func TestDeepMapAccess(t *testing.T) {
 	expression := `$.a.b[0].c["k"]`
 
 	// level5: $.a
-	level5 := &DotNotation{}
-	level5.LeftAccessibleNode = &Identifier{IdentifierName: "$"}
-	level5.RightAccessIdentifier = &Identifier{IdentifierName: "a"}
+	level5 := &ast.DotNotation{}
+	level5.LeftAccessibleNode = &ast.Identifier{IdentifierName: "$"}
+	level5.RightAccessIdentifier = &ast.Identifier{IdentifierName: "a"}
 	// level4: <level5>.b
-	level4 := &DotNotation{}
+	level4 := &ast.DotNotation{}
 	level4.LeftAccessibleNode = level5
-	level4.RightAccessIdentifier = &Identifier{IdentifierName: "b"}
+	level4.RightAccessIdentifier = &ast.Identifier{IdentifierName: "b"}
 	// level3: <level4>[0]
-	level3 := &BracketAccessor{}
+	level3 := &ast.BracketAccessor{}
 	level3.LeftNode = level4
-	level3.RightExpression = &IntLiteral{IntValue: 0}
+	level3.RightExpression = &ast.IntLiteral{IntValue: 0}
 	// level2: <level3>.c
-	level2 := &DotNotation{}
+	level2 := &ast.DotNotation{}
 	level2.LeftAccessibleNode = level3
-	level2.RightAccessIdentifier = &Identifier{IdentifierName: "c"}
+	level2.RightAccessIdentifier = &ast.Identifier{IdentifierName: "c"}
 	// root: <level2>["k"]
-	root := &BracketAccessor{}
+	root := &ast.BracketAccessor{}
 	root.LeftNode = level2
-	root.RightExpression = &StringLiteral{StrValue: "k"}
+	root.RightExpression = &ast.StringLiteral{StrValue: "k"}
 
-	// Create parser
-	p, err := InitParser(expression, t.Name())
-
-	assert.NoError(t, err)
-
-	parsedResult, err := p.ParseExpression()
-
-	assert.NoError(t, err)
-	assert.NotNil(t, parsedResult)
-
-	assert.Equals(t, expression, root.String())
-
-	parsedRoot, ok := parsedResult.(*BracketAccessor)
-	if !ok {
-		t.Fatalf("Output is not of type *BracketAccessor")
-	}
-	assert.Equals(t, parsedRoot, root)
+	assertParseExpression(t, expression, root)
 }
 
 func TestCompound(t *testing.T) {
 	expression := `$.a.b.c["key"].d`
 
 	// level5: $.a
-	level5 := &DotNotation{}
-	level5.LeftAccessibleNode = &Identifier{IdentifierName: "$"}
-	level5.RightAccessIdentifier = &Identifier{IdentifierName: "a"}
+	level5 := &ast.DotNotation{}
+	level5.LeftAccessibleNode = &ast.Identifier{IdentifierName: "$"}
+	level5.RightAccessIdentifier = &ast.Identifier{IdentifierName: "a"}
 	// level4: <level5>.b
-	level4 := &DotNotation{}
+	level4 := &ast.DotNotation{}
 	level4.LeftAccessibleNode = level5
-	level4.RightAccessIdentifier = &Identifier{IdentifierName: "b"}
+	level4.RightAccessIdentifier = &ast.Identifier{IdentifierName: "b"}
 	// level3: <level4>.c
-	level3 := &DotNotation{}
+	level3 := &ast.DotNotation{}
 	level3.LeftAccessibleNode = level4
-	level3.RightAccessIdentifier = &Identifier{IdentifierName: "c"}
+	level3.RightAccessIdentifier = &ast.Identifier{IdentifierName: "c"}
 	// level2: <level3>["key"]
-	level2 := &BracketAccessor{}
+	level2 := &ast.BracketAccessor{}
 	level2.LeftNode = level3
-	level2.RightExpression = &StringLiteral{StrValue: "key"}
+	level2.RightExpression = &ast.StringLiteral{StrValue: "key"}
 	// root: <level2>.d
-	root := &DotNotation{}
+	root := &ast.DotNotation{}
 	root.LeftAccessibleNode = level2
-	root.RightAccessIdentifier = &Identifier{IdentifierName: "d"}
+	root.RightAccessIdentifier = &ast.Identifier{IdentifierName: "d"}
 
-	// Create parser
-	p, err := InitParser(expression, t.Name())
-
-	assert.NoError(t, err)
-
-	parsedResult, err := p.ParseExpression()
-
-	assert.NoError(t, err)
-	assert.NotNil(t, parsedResult)
-
-	assert.Equals(t, expression, root.String())
-
-	parsedRoot, ok := parsedResult.(*DotNotation)
-	if !ok {
-		t.Fatalf("Output is not of type *DotNotation")
-	}
-	assert.Equals(t, parsedRoot, root)
+	assertParseExpression(t, expression, root)
 }
 
 func TestAllBracketNotation(t *testing.T) {
 	expression := `$["a"]["b"][0]["c"]`
 
-	level4 := &BracketAccessor{}
-	level4.LeftNode = &Identifier{"$"}
-	level4.RightExpression = &StringLiteral{"a"}
-	level3 := &BracketAccessor{}
+	level4 := &ast.BracketAccessor{}
+	level4.LeftNode = &ast.Identifier{IdentifierName: "$"}
+	level4.RightExpression = &ast.StringLiteral{StrValue: "a"}
+	level3 := &ast.BracketAccessor{}
 	level3.LeftNode = level4
-	level3.RightExpression = &StringLiteral{"b"}
-	level2 := &BracketAccessor{}
+	level3.RightExpression = &ast.StringLiteral{StrValue: "b"}
+	level2 := &ast.BracketAccessor{}
 	level2.LeftNode = level3
-	level2.RightExpression = &IntLiteral{0}
-	root := &BracketAccessor{}
+	level2.RightExpression = &ast.IntLiteral{IntValue: 0}
+	root := &ast.BracketAccessor{}
 	root.LeftNode = level2
-	root.RightExpression = &StringLiteral{"c"}
+	root.RightExpression = &ast.StringLiteral{StrValue: "c"}
 	// Create parser
-	p, err := InitParser(expression, t.Name())
+	p, err := ast.InitParser(expression, t.Name())
 
 	assert.NoError(t, err)
 
@@ -339,7 +323,7 @@ func TestAllBracketNotation(t *testing.T) {
 
 	assert.Equals(t, expression, root.String())
 
-	parsedRoot, ok := parsedResult.(*BracketAccessor)
+	parsedRoot, ok := parsedResult.(*ast.BracketAccessor)
 	if !ok {
 		t.Fatalf("Output is not of type *BracketAccessor")
 	}
@@ -349,7 +333,7 @@ func TestAllBracketNotation(t *testing.T) {
 func TestEmptyExpression(t *testing.T) {
 	expression := ""
 
-	p, err := InitParser(expression, t.Name())
+	p, err := ast.InitParser(expression, t.Name())
 	assert.NoError(t, err)
 	_, err = p.ParseExpression()
 	assert.Error(t, err)
@@ -358,7 +342,7 @@ func TestEmptyExpression(t *testing.T) {
 func TestMapWithSingleQuotes(t *testing.T) {
 	expression := "$['a']"
 
-	p, err := InitParser(expression, t.Name())
+	p, err := ast.InitParser(expression, t.Name())
 	assert.NoError(t, err)
 	parsedResult, err := p.ParseExpression()
 	assert.NoError(t, err)
@@ -370,15 +354,15 @@ func TestMapWithSingleQuotes(t *testing.T) {
 func TestSubExpression(t *testing.T) {
 	expression := "$[$.a]"
 
-	right := &DotNotation{}
-	right.LeftAccessibleNode = &Identifier{IdentifierName: "$"}
-	right.RightAccessIdentifier = &Identifier{IdentifierName: "a"}
-	root := &BracketAccessor{}
-	root.LeftNode = &Identifier{IdentifierName: "$"}
+	right := &ast.DotNotation{}
+	right.LeftAccessibleNode = &ast.Identifier{IdentifierName: "$"}
+	right.RightAccessIdentifier = &ast.Identifier{IdentifierName: "a"}
+	root := &ast.BracketAccessor{}
+	root.LeftNode = &ast.Identifier{IdentifierName: "$"}
 	root.RightExpression = right
 
 	// Create parser
-	p, err := InitParser(expression, t.Name())
+	p, err := ast.InitParser(expression, t.Name())
 
 	assert.NoError(t, err)
 
@@ -389,7 +373,7 @@ func TestSubExpression(t *testing.T) {
 
 	assert.Equals(t, expression, root.String())
 
-	parsedRoot, ok := parsedResult.(*BracketAccessor)
+	parsedRoot, ok := parsedResult.(*ast.BracketAccessor)
 	if !ok {
 		t.Fatalf("Output is not of type *BracketAccessor")
 	}
@@ -399,7 +383,7 @@ func TestSubExpression(t *testing.T) {
 func TestParseExpression_Error_TrailingDot(t *testing.T) {
 	// Test error message for dot notation after literal.
 	expression := "$.a."
-	p, err := InitParser(expression, t.Name())
+	p, err := ast.InitParser(expression, t.Name())
 
 	assert.NoError(t, err)
 
@@ -411,7 +395,7 @@ func TestParseExpression_Error_TrailingDot(t *testing.T) {
 func TestParseExpression_Error_BracketAfterLiteral(t *testing.T) {
 	// Test error message for bracket access after literal
 	expression := "0[0]"
-	p, err := InitParser(expression, t.Name())
+	p, err := ast.InitParser(expression, t.Name())
 
 	assert.NoError(t, err)
 
@@ -423,7 +407,7 @@ func TestParseExpression_Error_BracketAfterLiteral(t *testing.T) {
 func TestParseExpression_Error_DotAfterLiteral(t *testing.T) {
 	// Test error message for dot notation after literal.
 	expression := "0 .a" // The space is needed for the tokens to be separated for the behavior we're testing.
-	p, err := InitParser(expression, t.Name())
+	p, err := ast.InitParser(expression, t.Name())
 
 	assert.NoError(t, err)
 
@@ -435,7 +419,7 @@ func TestParseExpression_Error_DotAfterLiteral(t *testing.T) {
 func TestParseExpression_Error_ParenthesesAfterLiteral(t *testing.T) {
 	// Test the error message for function call after literal.
 	expression := "0(0 + 0)"
-	p, err := InitParser(expression, t.Name())
+	p, err := ast.InitParser(expression, t.Name())
 
 	assert.NoError(t, err)
 
@@ -448,12 +432,12 @@ func TestParseExpression_Error_ParenthesesAfterLiteral(t *testing.T) {
 func TestEmptyFunctionExpression(t *testing.T) {
 	expression := "funcName()"
 
-	root := &FunctionCall{
-		FuncIdentifier: &Identifier{IdentifierName: "funcName"},
-		ArgumentInputs: &ArgumentList{Arguments: make([]Node, 0)},
+	root := &ast.FunctionCall{
+		FuncIdentifier: &ast.Identifier{IdentifierName: "funcName"},
+		ArgumentInputs: &ast.ArgumentList{Arguments: make([]ast.Node, 0)},
 	}
 
-	p, err := InitParser(expression, t.Name())
+	p, err := ast.InitParser(expression, t.Name())
 
 	assert.NoError(t, err)
 
@@ -464,7 +448,7 @@ func TestEmptyFunctionExpression(t *testing.T) {
 
 	assert.Equals(t, expression, root.String())
 
-	parsedRoot, ok := parsedResult.(*FunctionCall)
+	parsedRoot, ok := parsedResult.(*ast.FunctionCall)
 	if !ok {
 		t.Fatalf("Output is not of type *FunctionCall")
 	}
@@ -473,15 +457,15 @@ func TestEmptyFunctionExpression(t *testing.T) {
 func TestOneArgFunctionExpression(t *testing.T) {
 	expression := "funcName($.a)"
 
-	arg1 := &DotNotation{}
-	arg1.LeftAccessibleNode = &Identifier{IdentifierName: "$"}
-	arg1.RightAccessIdentifier = &Identifier{IdentifierName: "a"}
-	root := &FunctionCall{
-		FuncIdentifier: &Identifier{IdentifierName: "funcName"},
-		ArgumentInputs: &ArgumentList{Arguments: []Node{arg1}},
+	arg1 := &ast.DotNotation{}
+	arg1.LeftAccessibleNode = &ast.Identifier{IdentifierName: "$"}
+	arg1.RightAccessIdentifier = &ast.Identifier{IdentifierName: "a"}
+	root := &ast.FunctionCall{
+		FuncIdentifier: &ast.Identifier{IdentifierName: "funcName"},
+		ArgumentInputs: &ast.ArgumentList{Arguments: []ast.Node{arg1}},
 	}
 
-	p, err := InitParser(expression, t.Name())
+	p, err := ast.InitParser(expression, t.Name())
 
 	assert.NoError(t, err)
 
@@ -492,7 +476,7 @@ func TestOneArgFunctionExpression(t *testing.T) {
 
 	assert.Equals(t, expression, root.String())
 
-	parsedRoot, ok := parsedResult.(*FunctionCall)
+	parsedRoot, ok := parsedResult.(*ast.FunctionCall)
 	if !ok {
 		t.Fatalf("Output is not of type *FunctionCall")
 	}
@@ -500,17 +484,17 @@ func TestOneArgFunctionExpression(t *testing.T) {
 }
 func TestMultiArgFunctionExpression(t *testing.T) {
 	expression := `funcName($.a, 5, "test")`
-	arg1 := &DotNotation{}
-	arg1.LeftAccessibleNode = &Identifier{IdentifierName: "$"}
-	arg1.RightAccessIdentifier = &Identifier{IdentifierName: "a"}
-	arg2 := &IntLiteral{IntValue: 5}
-	arg3 := &StringLiteral{StrValue: "test"}
-	root := &FunctionCall{
-		FuncIdentifier: &Identifier{IdentifierName: "funcName"},
-		ArgumentInputs: &ArgumentList{Arguments: []Node{arg1, arg2, arg3}},
+	arg1 := &ast.DotNotation{}
+	arg1.LeftAccessibleNode = &ast.Identifier{IdentifierName: "$"}
+	arg1.RightAccessIdentifier = &ast.Identifier{IdentifierName: "a"}
+	arg2 := &ast.IntLiteral{IntValue: 5}
+	arg3 := &ast.StringLiteral{StrValue: "test"}
+	root := &ast.FunctionCall{
+		FuncIdentifier: &ast.Identifier{IdentifierName: "funcName"},
+		ArgumentInputs: &ast.ArgumentList{Arguments: []ast.Node{arg1, arg2, arg3}},
 	}
 
-	p, err := InitParser(expression, t.Name())
+	p, err := ast.InitParser(expression, t.Name())
 
 	assert.NoError(t, err)
 
@@ -521,7 +505,7 @@ func TestMultiArgFunctionExpression(t *testing.T) {
 
 	assert.Equals(t, expression, root.String())
 
-	parsedRoot, ok := parsedResult.(*FunctionCall)
+	parsedRoot, ok := parsedResult.(*ast.FunctionCall)
 	if !ok {
 		t.Fatalf("Output is not of type *FunctionCall")
 	}
@@ -530,16 +514,16 @@ func TestMultiArgFunctionExpression(t *testing.T) {
 func TestChainedFunctionExpression(t *testing.T) {
 	expression := "funcName().a"
 
-	functionCall := &FunctionCall{
-		FuncIdentifier: &Identifier{IdentifierName: "funcName"},
-		ArgumentInputs: &ArgumentList{Arguments: make([]Node, 0)},
+	functionCall := &ast.FunctionCall{
+		FuncIdentifier: &ast.Identifier{IdentifierName: "funcName"},
+		ArgumentInputs: &ast.ArgumentList{Arguments: make([]ast.Node, 0)},
 	}
-	root := &DotNotation{
+	root := &ast.DotNotation{
 		LeftAccessibleNode:    functionCall,
-		RightAccessIdentifier: &Identifier{IdentifierName: "a"},
+		RightAccessIdentifier: &ast.Identifier{IdentifierName: "a"},
 	}
 
-	p, err := InitParser(expression, t.Name())
+	p, err := ast.InitParser(expression, t.Name())
 
 	assert.NoError(t, err)
 
@@ -550,7 +534,7 @@ func TestChainedFunctionExpression(t *testing.T) {
 
 	assert.Equals(t, expression, root.String())
 
-	parsedRoot, ok := parsedResult.(*DotNotation)
+	parsedRoot, ok := parsedResult.(*ast.DotNotation)
 	if !ok {
 		t.Fatalf("Output is not of type *DotNotation")
 	}
@@ -560,7 +544,7 @@ func TestChainedFunctionExpression(t *testing.T) {
 func TestExpressionInvalidStart(t *testing.T) {
 	expression := "()"
 
-	p, err := InitParser(expression, t.Name())
+	p, err := ast.InitParser(expression, t.Name())
 	assert.NoError(t, err)
 	_, err = p.ParseExpression()
 	assert.Error(t, err)
@@ -569,7 +553,7 @@ func TestExpressionInvalidStart(t *testing.T) {
 func TestExpressionInvalidNonRoot(t *testing.T) {
 	expression := "$.$"
 
-	p, err := InitParser(expression, t.Name())
+	p, err := ast.InitParser(expression, t.Name())
 	assert.NoError(t, err)
 	_, err = p.ParseExpression()
 	assert.Error(t, err)
@@ -578,7 +562,7 @@ func TestExpressionInvalidNonRoot(t *testing.T) {
 func TestExpressionInvalidObjectAccess(t *testing.T) {
 	expression := "@.a"
 
-	p, err := InitParser(expression, t.Name())
+	p, err := ast.InitParser(expression, t.Name())
 	assert.NoError(t, err)
 	_, err = p.ParseExpression()
 	assert.Error(t, err)
@@ -587,7 +571,7 @@ func TestExpressionInvalidObjectAccess(t *testing.T) {
 func TestExpressionInvalidMapAccessGrammar(t *testing.T) {
 	expression := "$[)]" // Invalid due to the )
 
-	p, err := InitParser(expression, t.Name())
+	p, err := ast.InitParser(expression, t.Name())
 	assert.NoError(t, err)
 	_, err = p.ParseExpression()
 	assert.Error(t, err)
@@ -596,7 +580,7 @@ func TestExpressionInvalidMapAccessGrammar(t *testing.T) {
 func TestExpressionInvalidDotNotationGrammar(t *testing.T) {
 	expression := "$)a" // Invalid due to the )
 
-	p, err := InitParser(expression, t.Name())
+	p, err := ast.InitParser(expression, t.Name())
 	assert.NoError(t, err)
 	_, err = p.ParseExpression()
 	assert.Error(t, err)
@@ -605,7 +589,7 @@ func TestExpressionInvalidDotNotationGrammar(t *testing.T) {
 func TestExpressionInvalidIdentifier(t *testing.T) {
 	expression := "$.(" // invalid due to the (
 
-	p, err := InitParser(expression, t.Name())
+	p, err := ast.InitParser(expression, t.Name())
 	assert.NoError(t, err)
 	_, err = p.ParseExpression()
 	assert.Error(t, err)
@@ -615,14 +599,14 @@ func TestExpression_SimpleAdd(t *testing.T) {
 	expression := "2 + 2"
 
 	// 2 + 2 as tree
-	root := &BinaryOperation{
-		LeftNode:  &IntLiteral{IntValue: 2},
-		RightNode: &IntLiteral{IntValue: 2},
-		Operation: Add,
+	root := &ast.BinaryOperation{
+		LeftNode:  &ast.IntLiteral{IntValue: 2},
+		RightNode: &ast.IntLiteral{IntValue: 2},
+		Operation: ast.Add,
 	}
 
 	// Create parser
-	p, err := InitParser(expression, t.Name())
+	p, err := ast.InitParser(expression, t.Name())
 
 	assert.NoError(t, err)
 
@@ -632,8 +616,8 @@ func TestExpression_SimpleAdd(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, parsedResult)
 
-	assert.InstanceOf[*BinaryOperation](t, parsedResult)
-	assert.Equals(t, parsedResult.(*BinaryOperation), root)
+	assert.InstanceOf[*ast.BinaryOperation](t, parsedResult)
+	assert.Equals(t, parsedResult.(*ast.BinaryOperation), root)
 }
 
 func TestExpression_ThreeSub(t *testing.T) {
@@ -645,19 +629,19 @@ func TestExpression_ThreeSub(t *testing.T) {
 	//   -   3.0
 	//  / \
 	// 1.0    2.0
-	level2 := &BinaryOperation{
-		LeftNode:  &FloatLiteral{FloatValue: 1.0},
-		RightNode: &FloatLiteral{FloatValue: 2.0},
-		Operation: Subtract,
+	level2 := &ast.BinaryOperation{
+		LeftNode:  &ast.FloatLiteral{FloatValue: 1.0},
+		RightNode: &ast.FloatLiteral{FloatValue: 2.0},
+		Operation: ast.Subtract,
 	}
-	root := &BinaryOperation{
+	root := &ast.BinaryOperation{
 		LeftNode:  level2,
-		RightNode: &FloatLiteral{FloatValue: 3.0},
-		Operation: Subtract,
+		RightNode: &ast.FloatLiteral{FloatValue: 3.0},
+		Operation: ast.Subtract,
 	}
 
 	// Create parser
-	p, err := InitParser(expression, t.Name())
+	p, err := ast.InitParser(expression, t.Name())
 
 	assert.NoError(t, err)
 
@@ -667,8 +651,8 @@ func TestExpression_ThreeSub(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, parsedResult)
 
-	assert.InstanceOf[*BinaryOperation](t, parsedResult)
-	assert.Equals[Node](t, parsedResult, root)
+	assert.InstanceOf[*ast.BinaryOperation](t, parsedResult)
+	assert.Equals[ast.Node](t, parsedResult, root)
 }
 
 func TestExpression_MixedAddMultiplicationDivision(t *testing.T) {
@@ -682,24 +666,24 @@ func TestExpression_MixedAddMultiplicationDivision(t *testing.T) {
 	//   *   10
 	//  / \
 	// 50  6
-	level3 := &BinaryOperation{
-		LeftNode:  &IntLiteral{IntValue: 50},
-		RightNode: &IntLiteral{IntValue: 6},
-		Operation: Multiply,
+	level3 := &ast.BinaryOperation{
+		LeftNode:  &ast.IntLiteral{IntValue: 50},
+		RightNode: &ast.IntLiteral{IntValue: 6},
+		Operation: ast.Multiply,
 	}
-	level2 := &BinaryOperation{
+	level2 := &ast.BinaryOperation{
 		LeftNode:  level3,
-		RightNode: &IntLiteral{IntValue: 10},
-		Operation: Divide,
+		RightNode: &ast.IntLiteral{IntValue: 10},
+		Operation: ast.Divide,
 	}
-	root := &BinaryOperation{
-		LeftNode:  &IntLiteral{IntValue: 7},
+	root := &ast.BinaryOperation{
+		LeftNode:  &ast.IntLiteral{IntValue: 7},
 		RightNode: level2,
-		Operation: Add,
+		Operation: ast.Add,
 	}
 
 	// Create parser
-	p, err := InitParser(expression, t.Name())
+	p, err := ast.InitParser(expression, t.Name())
 
 	assert.NoError(t, err)
 
@@ -709,8 +693,8 @@ func TestExpression_MixedAddMultiplicationDivision(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, parsedResult)
 
-	assert.InstanceOf[*BinaryOperation](t, parsedResult)
-	assert.Equals[Node](t, parsedResult, root)
+	assert.InstanceOf[*ast.BinaryOperation](t, parsedResult)
+	assert.Equals[ast.Node](t, parsedResult, root)
 }
 
 func TestExpression_Power(t *testing.T) {
@@ -722,19 +706,19 @@ func TestExpression_Power(t *testing.T) {
 	//   ^   3
 	//  / \
 	// 1    4
-	level2 := &BinaryOperation{
-		LeftNode:  &IntLiteral{IntValue: 1},
-		RightNode: &IntLiteral{IntValue: 4},
-		Operation: Power,
+	level2 := &ast.BinaryOperation{
+		LeftNode:  &ast.IntLiteral{IntValue: 1},
+		RightNode: &ast.IntLiteral{IntValue: 4},
+		Operation: ast.Power,
 	}
-	root := &BinaryOperation{
+	root := &ast.BinaryOperation{
 		LeftNode:  level2,
-		RightNode: &IntLiteral{IntValue: 3},
-		Operation: Multiply,
+		RightNode: &ast.IntLiteral{IntValue: 3},
+		Operation: ast.Multiply,
 	}
 
 	// Create parser
-	p, err := InitParser(expression, t.Name())
+	p, err := ast.InitParser(expression, t.Name())
 
 	assert.NoError(t, err)
 
@@ -744,8 +728,8 @@ func TestExpression_Power(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, parsedResult)
 
-	assert.InstanceOf[*BinaryOperation](t, parsedResult)
-	assert.Equals[Node](t, parsedResult, root)
+	assert.InstanceOf[*ast.BinaryOperation](t, parsedResult)
+	assert.Equals[ast.Node](t, parsedResult, root)
 }
 
 func TestExpression_PowerParentheses(t *testing.T) {
@@ -757,19 +741,19 @@ func TestExpression_PowerParentheses(t *testing.T) {
 	//   2   *
 	//      / \
 	//     4    3
-	level2 := &BinaryOperation{
-		LeftNode:  &IntLiteral{IntValue: 4},
-		RightNode: &IntLiteral{IntValue: 3},
-		Operation: Multiply,
+	level2 := &ast.BinaryOperation{
+		LeftNode:  &ast.IntLiteral{IntValue: 4},
+		RightNode: &ast.IntLiteral{IntValue: 3},
+		Operation: ast.Multiply,
 	}
-	root := &BinaryOperation{
-		LeftNode:  &IntLiteral{IntValue: 2},
+	root := &ast.BinaryOperation{
+		LeftNode:  &ast.IntLiteral{IntValue: 2},
 		RightNode: level2,
-		Operation: Power,
+		Operation: ast.Power,
 	}
 
 	// Create parser
-	p, err := InitParser(expression, t.Name())
+	p, err := ast.InitParser(expression, t.Name())
 
 	assert.NoError(t, err)
 
@@ -779,8 +763,8 @@ func TestExpression_PowerParentheses(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, parsedResult)
 
-	assert.InstanceOf[*BinaryOperation](t, parsedResult)
-	assert.Equals[Node](t, parsedResult, root)
+	assert.InstanceOf[*ast.BinaryOperation](t, parsedResult)
+	assert.Equals[ast.Node](t, parsedResult, root)
 }
 
 func TestExpression_Parentheses(t *testing.T) {
@@ -792,19 +776,19 @@ func TestExpression_Parentheses(t *testing.T) {
 	//   +   2
 	//  / \
 	// 4    3
-	level2 := &BinaryOperation{
-		LeftNode:  &IntLiteral{IntValue: 4},
-		RightNode: &IntLiteral{IntValue: 3},
-		Operation: Add,
+	level2 := &ast.BinaryOperation{
+		LeftNode:  &ast.IntLiteral{IntValue: 4},
+		RightNode: &ast.IntLiteral{IntValue: 3},
+		Operation: ast.Add,
 	}
-	root := &BinaryOperation{
+	root := &ast.BinaryOperation{
 		LeftNode:  level2,
-		RightNode: &IntLiteral{IntValue: 2},
-		Operation: Multiply,
+		RightNode: &ast.IntLiteral{IntValue: 2},
+		Operation: ast.Multiply,
 	}
 
 	// Create parser
-	p, err := InitParser(expression, t.Name())
+	p, err := ast.InitParser(expression, t.Name())
 
 	assert.NoError(t, err)
 
@@ -814,8 +798,8 @@ func TestExpression_Parentheses(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, parsedResult)
 
-	assert.InstanceOf[*BinaryOperation](t, parsedResult)
-	assert.Equals[Node](t, parsedResult, root)
+	assert.InstanceOf[*ast.BinaryOperation](t, parsedResult)
+	assert.Equals[ast.Node](t, parsedResult, root)
 }
 
 func TestExpression_UnaryNegative(t *testing.T) {
@@ -827,18 +811,18 @@ func TestExpression_UnaryNegative(t *testing.T) {
 	//   5   -
 	//       |
 	//       5
-	level2 := &UnaryOperation{
-		LeftOperation: Subtract,
-		RightNode:     &IntLiteral{IntValue: 5},
+	level2 := &ast.UnaryOperation{
+		LeftOperation: ast.Subtract,
+		RightNode:     &ast.IntLiteral{IntValue: 5},
 	}
-	root := &BinaryOperation{
-		LeftNode:  &IntLiteral{IntValue: 5},
+	root := &ast.BinaryOperation{
+		LeftNode:  &ast.IntLiteral{IntValue: 5},
 		RightNode: level2,
-		Operation: Add,
+		Operation: ast.Add,
 	}
 
 	// Create parser
-	p, err := InitParser(expression, t.Name())
+	p, err := ast.InitParser(expression, t.Name())
 
 	assert.NoError(t, err)
 
@@ -848,72 +832,72 @@ func TestExpression_UnaryNegative(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, parsedResult)
 
-	assert.InstanceOf[*BinaryOperation](t, parsedResult)
-	assert.Equals[Node](t, parsedResult, root)
+	assert.InstanceOf[*ast.BinaryOperation](t, parsedResult)
+	assert.Equals[ast.Node](t, parsedResult, root)
 }
 
 func TestExpression_MultiNegationUnary(t *testing.T) {
 	expression := `---5`
-	level3 := &UnaryOperation{
-		LeftOperation: Subtract,
-		RightNode:     &IntLiteral{IntValue: 5},
+	level3 := &ast.UnaryOperation{
+		LeftOperation: ast.Subtract,
+		RightNode:     &ast.IntLiteral{IntValue: 5},
 	}
-	level2 := &UnaryOperation{
-		LeftOperation: Subtract,
+	level2 := &ast.UnaryOperation{
+		LeftOperation: ast.Subtract,
 		RightNode:     level3,
 	}
-	root := &UnaryOperation{
-		LeftOperation: Subtract,
+	root := &ast.UnaryOperation{
+		LeftOperation: ast.Subtract,
 		RightNode:     level2,
 	}
-	p, err := InitParser(expression, t.Name())
+	p, err := ast.InitParser(expression, t.Name())
 	assert.NoError(t, err)
 	parsedResult, err := p.ParseExpression()
 	assert.NoError(t, err)
 	assert.NotNil(t, parsedResult)
 
-	assert.InstanceOf[*UnaryOperation](t, parsedResult)
-	assert.Equals[Node](t, parsedResult, root)
+	assert.InstanceOf[*ast.UnaryOperation](t, parsedResult)
+	assert.Equals[ast.Node](t, parsedResult, root)
 }
 
 func TestExpression_MultiNegationUnaryParentheses(t *testing.T) {
 	expression := `-(-5)`
-	level2 := &UnaryOperation{
-		LeftOperation: Subtract,
-		RightNode:     &IntLiteral{IntValue: 5},
+	level2 := &ast.UnaryOperation{
+		LeftOperation: ast.Subtract,
+		RightNode:     &ast.IntLiteral{IntValue: 5},
 	}
-	root := &UnaryOperation{
-		LeftOperation: Subtract,
+	root := &ast.UnaryOperation{
+		LeftOperation: ast.Subtract,
 		RightNode:     level2,
 	}
-	p, err := InitParser(expression, t.Name())
+	p, err := ast.InitParser(expression, t.Name())
 	assert.NoError(t, err)
 	parsedResult, err := p.ParseExpression()
 	assert.NoError(t, err)
 	assert.NotNil(t, parsedResult)
 
-	assert.InstanceOf[*UnaryOperation](t, parsedResult)
-	assert.Equals[Node](t, parsedResult, root)
+	assert.InstanceOf[*ast.UnaryOperation](t, parsedResult)
+	assert.Equals[ast.Node](t, parsedResult, root)
 }
 
 func TestExpression_MultiNotUnary(t *testing.T) {
 	expression := `!!true`
-	level2 := &UnaryOperation{
-		LeftOperation: Not,
-		RightNode:     &BooleanLiteral{BooleanValue: true},
+	level2 := &ast.UnaryOperation{
+		LeftOperation: ast.Not,
+		RightNode:     &ast.BooleanLiteral{BooleanValue: true},
 	}
-	root := &UnaryOperation{
-		LeftOperation: Not,
+	root := &ast.UnaryOperation{
+		LeftOperation: ast.Not,
 		RightNode:     level2,
 	}
-	p, err := InitParser(expression, t.Name())
+	p, err := ast.InitParser(expression, t.Name())
 	assert.NoError(t, err)
 	parsedResult, err := p.ParseExpression()
 	assert.NoError(t, err)
 	assert.NotNil(t, parsedResult)
 
-	assert.InstanceOf[*UnaryOperation](t, parsedResult)
-	assert.Equals[Node](t, parsedResult, root)
+	assert.InstanceOf[*ast.UnaryOperation](t, parsedResult)
+	assert.Equals[ast.Node](t, parsedResult, root)
 }
 
 // In the binary operator grammar tests, not all operators are tested
@@ -927,14 +911,14 @@ func TestExpression_SimpleComparison(t *testing.T) {
 	//   >
 	//  / \
 	// 2   2
-	root := &BinaryOperation{
-		LeftNode:  &IntLiteral{IntValue: 2},
-		RightNode: &IntLiteral{IntValue: 2},
-		Operation: GreaterThan,
+	root := &ast.BinaryOperation{
+		LeftNode:  &ast.IntLiteral{IntValue: 2},
+		RightNode: &ast.IntLiteral{IntValue: 2},
+		Operation: ast.GreaterThan,
 	}
 
 	// Create parser
-	p, err := InitParser(expression, t.Name())
+	p, err := ast.InitParser(expression, t.Name())
 
 	assert.NoError(t, err)
 
@@ -944,8 +928,8 @@ func TestExpression_SimpleComparison(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, parsedResult)
 
-	assert.InstanceOf[*BinaryOperation](t, parsedResult)
-	assert.Equals[Node](t, parsedResult, root)
+	assert.InstanceOf[*ast.BinaryOperation](t, parsedResult)
+	assert.Equals[ast.Node](t, parsedResult, root)
 }
 
 func TestExpression_SimpleComparisonTwoToken(t *testing.T) {
@@ -955,13 +939,13 @@ func TestExpression_SimpleComparisonTwoToken(t *testing.T) {
 	//  >=
 	//  / \
 	// 2   2
-	root := &BinaryOperation{
-		LeftNode:  &IntLiteral{IntValue: 2},
-		RightNode: &IntLiteral{IntValue: 2},
-		Operation: GreaterThanEqualTo,
+	root := &ast.BinaryOperation{
+		LeftNode:  &ast.IntLiteral{IntValue: 2},
+		RightNode: &ast.IntLiteral{IntValue: 2},
+		Operation: ast.GreaterThanEqualTo,
 	}
 	// Create parser
-	p, err := InitParser(expression, t.Name())
+	p, err := ast.InitParser(expression, t.Name())
 
 	assert.NoError(t, err)
 
@@ -971,8 +955,8 @@ func TestExpression_SimpleComparisonTwoToken(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, parsedResult)
 
-	assert.InstanceOf[*BinaryOperation](t, parsedResult)
-	assert.Equals[Node](t, parsedResult, root)
+	assert.InstanceOf[*ast.BinaryOperation](t, parsedResult)
+	assert.Equals[ast.Node](t, parsedResult, root)
 }
 
 func TestExpression_ErrIncorrectEquals(t *testing.T) {
@@ -980,7 +964,7 @@ func TestExpression_ErrIncorrectEquals(t *testing.T) {
 	expression := "2 = 2"
 
 	// Create parser
-	p, err := InitParser(expression, t.Name())
+	p, err := ast.InitParser(expression, t.Name())
 
 	assert.NoError(t, err)
 
@@ -988,12 +972,12 @@ func TestExpression_ErrIncorrectEquals(t *testing.T) {
 	_, err = p.ParseExpression()
 
 	assert.Error(t, err)
-	var grammarErr *InvalidGrammarError
+	var grammarErr *ast.InvalidGrammarError
 	ok := errors.As(err, &grammarErr)
 	if !ok {
 		t.Fatalf("Returned error is not InvalidGrammarError")
 	}
-	assert.Equals(t, grammarErr.ExpectedTokens, []TokenID{EqualsToken})
+	assert.Equals(t, grammarErr.ExpectedTokens, []ast.TokenID{ast.EqualsToken})
 }
 
 func TestExpression_MixedComparisons(t *testing.T) {
@@ -1005,19 +989,19 @@ func TestExpression_MixedComparisons(t *testing.T) {
 	//   0   +
 	//      / \
 	//     1   2
-	level2 := &BinaryOperation{
-		LeftNode:  &IntLiteral{IntValue: 1},
-		RightNode: &IntLiteral{IntValue: 2},
-		Operation: Add,
+	level2 := &ast.BinaryOperation{
+		LeftNode:  &ast.IntLiteral{IntValue: 1},
+		RightNode: &ast.IntLiteral{IntValue: 2},
+		Operation: ast.Add,
 	}
-	root := &BinaryOperation{
-		LeftNode:  &IntLiteral{IntValue: 0},
+	root := &ast.BinaryOperation{
+		LeftNode:  &ast.IntLiteral{IntValue: 0},
 		RightNode: level2,
-		Operation: LessThan,
+		Operation: ast.LessThan,
 	}
 
 	// Create parser
-	p, err := InitParser(expression, t.Name())
+	p, err := ast.InitParser(expression, t.Name())
 
 	assert.NoError(t, err)
 
@@ -1027,8 +1011,8 @@ func TestExpression_MixedComparisons(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, parsedResult)
 
-	assert.InstanceOf[*BinaryOperation](t, parsedResult)
-	assert.Equals[Node](t, parsedResult, root)
+	assert.InstanceOf[*ast.BinaryOperation](t, parsedResult)
+	assert.Equals[ast.Node](t, parsedResult, root)
 }
 func TestExpression_AndLogic(t *testing.T) {
 	expression := "true && false"
@@ -1037,14 +1021,14 @@ func TestExpression_AndLogic(t *testing.T) {
 	//     &&
 	//    /  \
 	//  true  false
-	root := &BinaryOperation{
-		LeftNode:  &BooleanLiteral{BooleanValue: true},
-		RightNode: &BooleanLiteral{BooleanValue: false},
-		Operation: And,
+	root := &ast.BinaryOperation{
+		LeftNode:  &ast.BooleanLiteral{BooleanValue: true},
+		RightNode: &ast.BooleanLiteral{BooleanValue: false},
+		Operation: ast.And,
 	}
 
 	// Create parser
-	p, err := InitParser(expression, t.Name())
+	p, err := ast.InitParser(expression, t.Name())
 
 	assert.NoError(t, err)
 
@@ -1054,8 +1038,8 @@ func TestExpression_AndLogic(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, parsedResult)
 
-	assert.InstanceOf[*BinaryOperation](t, parsedResult)
-	assert.Equals[Node](t, parsedResult, root)
+	assert.InstanceOf[*ast.BinaryOperation](t, parsedResult)
+	assert.Equals[ast.Node](t, parsedResult, root)
 }
 
 func TestExpression_AllTypes(t *testing.T) {
@@ -1071,43 +1055,43 @@ func TestExpression_AllTypes(t *testing.T) {
 	//    *    4   2   5          true
 	//   / \
 	//  2   3
-	multiplicationNode := &BinaryOperation{
-		LeftNode:  &IntLiteral{IntValue: 2},
-		RightNode: &IntLiteral{IntValue: 3},
-		Operation: Multiply,
+	multiplicationNode := &ast.BinaryOperation{
+		LeftNode:  &ast.IntLiteral{IntValue: 2},
+		RightNode: &ast.IntLiteral{IntValue: 3},
+		Operation: ast.Multiply,
 	}
-	addNode := &BinaryOperation{
+	addNode := &ast.BinaryOperation{
 		LeftNode:  multiplicationNode,
-		RightNode: &IntLiteral{IntValue: 4},
-		Operation: Add,
+		RightNode: &ast.IntLiteral{IntValue: 4},
+		Operation: ast.Add,
 	}
-	modNode := &BinaryOperation{
-		LeftNode:  &IntLiteral{IntValue: 2},
-		RightNode: &IntLiteral{IntValue: 5},
-		Operation: Modulus,
+	modNode := &ast.BinaryOperation{
+		LeftNode:  &ast.IntLiteral{IntValue: 2},
+		RightNode: &ast.IntLiteral{IntValue: 5},
+		Operation: ast.Modulus,
 	}
-	greaterThanNode := &BinaryOperation{
+	greaterThanNode := &ast.BinaryOperation{
 		LeftNode:  addNode,
 		RightNode: modNode,
-		Operation: GreaterThan,
+		Operation: ast.GreaterThan,
 	}
-	notNode := &UnaryOperation{
-		LeftOperation: Not,
-		RightNode:     &BooleanLiteral{BooleanValue: true},
+	notNode := &ast.UnaryOperation{
+		LeftOperation: ast.Not,
+		RightNode:     &ast.BooleanLiteral{BooleanValue: true},
 	}
-	andNode := &BinaryOperation{
-		LeftNode:  &Identifier{IdentifierName: "$.test"},
+	andNode := &ast.BinaryOperation{
+		LeftNode:  &ast.Identifier{IdentifierName: "$.test"},
 		RightNode: notNode,
-		Operation: And,
+		Operation: ast.And,
 	}
-	root := &BinaryOperation{
+	root := &ast.BinaryOperation{
 		LeftNode:  greaterThanNode,
 		RightNode: andNode,
-		Operation: Or,
+		Operation: ast.Or,
 	}
 
 	// Create parser
-	p, err := InitParser(expression, t.Name())
+	p, err := ast.InitParser(expression, t.Name())
 
 	assert.NoError(t, err)
 
@@ -1117,7 +1101,7 @@ func TestExpression_AllTypes(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, parsedResult)
 
-	assert.InstanceOf[*BinaryOperation](t, parsedResult)
+	assert.InstanceOf[*ast.BinaryOperation](t, parsedResult)
 	// For some reason, comparing the raw results was failing falsely.
 	assert.Equals(t, parsedResult.String(), root.String())
 }
@@ -1128,7 +1112,7 @@ func TestExpression_AllTypes(t *testing.T) {
 func TestExpression_MismatchedPair(t *testing.T) {
 	bracketAccessExpr := "$.test[5)"
 	// Create parser
-	p, err := InitParser(bracketAccessExpr, t.Name())
+	p, err := ast.InitParser(bracketAccessExpr, t.Name())
 
 	assert.NoError(t, err)
 
@@ -1136,16 +1120,16 @@ func TestExpression_MismatchedPair(t *testing.T) {
 	_, err = p.ParseExpression()
 
 	assert.Error(t, err)
-	var grammarErr *InvalidGrammarError
+	var grammarErr *ast.InvalidGrammarError
 	ok := errors.As(err, &grammarErr)
 	if !ok {
 		t.Fatalf("Returned error is not InvalidGrammarError")
 	}
-	assert.Equals(t, grammarErr.ExpectedTokens, []TokenID{BracketAccessDelimiterEndToken})
+	assert.Equals(t, grammarErr.ExpectedTokens, []ast.TokenID{ast.BracketAccessDelimiterEndToken})
 
 	funcExpr := "5 * (5 * 5]"
 	// Create parser
-	p, err = InitParser(funcExpr, t.Name())
+	p, err = ast.InitParser(funcExpr, t.Name())
 
 	assert.NoError(t, err)
 
@@ -1157,12 +1141,12 @@ func TestExpression_MismatchedPair(t *testing.T) {
 	if !ok {
 		t.Fatalf("Returned error is not InvalidGrammarError")
 	}
-	assert.Equals(t, grammarErr.ExpectedTokens, []TokenID{ParenthesesEndToken})
+	assert.Equals(t, grammarErr.ExpectedTokens, []ast.TokenID{ast.ParenthesesEndToken})
 }
 
 func TestExpressionErrorChainLiteral(t *testing.T) {
 	expression := `"a".a`
-	p, err := InitParser(expression, t.Name())
+	p, err := ast.InitParser(expression, t.Name())
 	assert.NoError(t, err)
 	_, err = p.ParseExpression()
 	assert.Error(t, err)
@@ -1171,114 +1155,114 @@ func TestExpressionErrorChainLiteral(t *testing.T) {
 
 func TestParseArgs_badStart(t *testing.T) {
 	expression := `))`
-	p, err := InitParser(expression, t.Name())
+	p, err := ast.InitParser(expression, t.Name())
 	assert.NoError(t, err)
-	err = p.advanceToken()
+	err = p.AdvanceTokenForTest()
 	assert.NoError(t, err)
-	_, err = p.parseArgs()
+	_, err = p.ParseArgsForTest()
 	assert.Error(t, err)
-	var grammarErr *InvalidGrammarError
+	var grammarErr *ast.InvalidGrammarError
 	ok := errors.As(err, &grammarErr)
 	if !ok {
 		t.Fatalf("Returned error is not InvalidGrammarError")
 	}
-	assert.Equals(t, grammarErr.ExpectedTokens, []TokenID{ParenthesesStartToken})
+	assert.Equals(t, grammarErr.ExpectedTokens, []ast.TokenID{ast.ParenthesesStartToken})
 }
 
 func TestParseArgs_badEnd2(t *testing.T) {
 	// An incomplete argument list with a missing close parentheses.
 	expression := `(""`
-	p, err := InitParser(expression, t.Name())
+	p, err := ast.InitParser(expression, t.Name())
 	assert.NoError(t, err)
-	err = p.advanceToken()
+	err = p.AdvanceTokenForTest()
 	assert.NoError(t, err)
-	_, err = p.parseArgs()
+	_, err = p.ParseArgsForTest()
 	assert.Error(t, err)
-	var grammarErr *InvalidGrammarError
+	var grammarErr *ast.InvalidGrammarError
 	ok := errors.As(err, &grammarErr)
 	if !ok {
 		t.Fatalf("Returned error is not InvalidGrammarError")
 	}
-	assert.Equals(t, grammarErr.ExpectedTokens, []TokenID{ParenthesesEndToken, ListSeparatorToken})
+	assert.Equals(t, grammarErr.ExpectedTokens, []ast.TokenID{ast.ParenthesesEndToken, ast.ListSeparatorToken})
 }
 
 func TestParseArgs_badSeparator(t *testing.T) {
 	// Testing a bad argument list
 	expression := `(""1`
-	p, err := InitParser(expression, t.Name())
+	p, err := ast.InitParser(expression, t.Name())
 	assert.NoError(t, err)
-	err = p.advanceToken()
+	err = p.AdvanceTokenForTest()
 	assert.NoError(t, err)
-	_, err = p.parseArgs()
+	_, err = p.ParseArgsForTest()
 	assert.Error(t, err)
-	var grammarErr *InvalidGrammarError
+	var grammarErr *ast.InvalidGrammarError
 	ok := errors.As(err, &grammarErr)
 	if !ok {
 		t.Fatalf("Returned error is not InvalidGrammarError")
 	}
-	assert.Equals(t, grammarErr.ExpectedTokens, []TokenID{ListSeparatorToken, ParenthesesEndToken})
+	assert.Equals(t, grammarErr.ExpectedTokens, []ast.TokenID{ast.ListSeparatorToken, ast.ParenthesesEndToken})
 }
 
 func TestParseArgs_endedAfterSeparator(t *testing.T) {
 	// Test separator in place of close parentheses
 	expression := `("",`
-	p, err := InitParser(expression, t.Name())
+	p, err := ast.InitParser(expression, t.Name())
 	assert.NoError(t, err)
-	err = p.advanceToken()
+	err = p.AdvanceTokenForTest()
 	assert.NoError(t, err)
-	_, err = p.parseArgs()
+	_, err = p.ParseArgsForTest()
 	assert.Error(t, err)
-	var grammarErr *InvalidGrammarError
+	var grammarErr *ast.InvalidGrammarError
 	ok := errors.As(err, &grammarErr)
 	if !ok {
 		t.Fatalf("Returned error is not InvalidGrammarError")
 	}
-	assert.Equals(t, grammarErr.ExpectedTokens, []TokenID{ParenthesesEndToken})
+	assert.Equals(t, grammarErr.ExpectedTokens, []ast.TokenID{ast.ParenthesesEndToken})
 }
 
 func TestParseArgs_badFirstToken(t *testing.T) {
 	// Test a missing open parentheses.
 	// This is testing an edge-case that should not be hit if designed correctly.
 	expression := `1`
-	p, err := InitParser(expression, t.Name())
+	p, err := ast.InitParser(expression, t.Name())
 	assert.NoError(t, err)
-	err = p.advanceToken()
+	err = p.AdvanceTokenForTest()
 	assert.NoError(t, err)
-	_, err = p.parseArgs()
+	_, err = p.ParseArgsForTest()
 	assert.Error(t, err)
-	var grammarErr *InvalidGrammarError
+	var grammarErr *ast.InvalidGrammarError
 	ok := errors.As(err, &grammarErr)
 	if !ok {
 		t.Fatalf("Returned error is not InvalidGrammarError")
 	}
-	assert.Equals(t, grammarErr.ExpectedTokens, []TokenID{ParenthesesStartToken})
+	assert.Equals(t, grammarErr.ExpectedTokens, []ast.TokenID{ast.ParenthesesStartToken})
 }
 
 func TestParseString_EscapedStrings(t *testing.T) {
 	expression := `"a\"b" "a\tb" "a\\b" "a\bb" "a\nb" "a\\nb" '\''`
-	p, err := InitParser(expression, t.Name())
+	p, err := ast.InitParser(expression, t.Name())
 	assert.NoError(t, err)
-	err = p.advanceToken()
+	err = p.AdvanceTokenForTest()
 	assert.NoError(t, err)
-	result, err := p.parseStringLiteral()
+	result, err := p.ParseStringLiteralForTest()
 	assert.NoError(t, err)
 	assert.Equals(t, result.StrValue, `a"b`)
-	result, err = p.parseStringLiteral()
+	result, err = p.ParseStringLiteralForTest()
 	assert.NoError(t, err)
 	assert.Equals(t, result.StrValue, "a\tb")
-	result, err = p.parseStringLiteral()
+	result, err = p.ParseStringLiteralForTest()
 	assert.NoError(t, err)
 	assert.Equals(t, result.StrValue, `a\b`)
-	result, err = p.parseStringLiteral()
+	result, err = p.ParseStringLiteralForTest()
 	assert.NoError(t, err)
 	assert.Equals(t, result.StrValue, "a\bb")
-	result, err = p.parseStringLiteral()
+	result, err = p.ParseStringLiteralForTest()
 	assert.NoError(t, err)
 	assert.Equals(t, result.StrValue, "a\nb")
-	result, err = p.parseStringLiteral()
+	result, err = p.ParseStringLiteralForTest()
 	assert.NoError(t, err)
 	assert.Equals(t, result.StrValue, "a\\nb")
-	result, err = p.parseStringLiteral()
+	result, err = p.ParseStringLiteralForTest()
 	assert.NoError(t, err)
 	assert.Equals(t, result.StrValue, "'")
 }
