@@ -69,8 +69,6 @@ func (p *Parser) advanceToken() error {
 
 // parseBracketAccess parses a bracket access in the form of a
 // bracket, followed by the key, followed by a closing bracket.
-//
-//nolint:funlen
 func (p *Parser) parseBracketAccess(expressionToAccess Node) (*BracketAccessor, error) {
 	if expressionToAccess == nil {
 		return nil, errors.New("parameter expressionToAccess is nil")
@@ -148,7 +146,7 @@ func (p *Parser) parseBooleanLiteral() (*BooleanLiteral, error) {
 	return literal, nil
 }
 
-// Common escape characters
+// Common escape characters.
 var escapeReplacer = strings.NewReplacer(
 	`\\`, `\`,
 	`\t`, "\t",
@@ -278,97 +276,86 @@ func (p *Parser) ParseExpression() (Node, error) {
 	return node, err
 }
 
+// singleTokenOperators maps single-character operator tokens to their MathOperationType.
+var singleTokenOperators = map[TokenID]MathOperationType{
+	PlusToken:     Add,
+	NegationToken: Subtract,
+	AsteriskToken: Multiply,
+	DivideToken:   Divide,
+	PowerToken:    Power,
+	ModulusToken:  Modulus,
+}
+
+// compoundEqualOperators maps the first token of a two-token comparison operator (e.g. !=, >=)
+// to the resulting MathOperationType when followed by '='.
+var compoundEqualOperators = map[TokenID]MathOperationType{
+	NotToken:         NotEqualTo,
+	GreaterThanToken: GreaterThanEqualTo,
+	LessThanToken:    LessThanEqualTo,
+	EqualsToken:      EqualTo,
+}
+
+// singleComparisonOperators maps single-token comparison operators to their MathOperationType.
+var singleComparisonOperators = map[TokenID]MathOperationType{
+	GreaterThanToken: GreaterThan,
+	LessThanToken:    LessThan,
+	NotToken:         Not,
+}
+
 func (p *Parser) parseMathOperator() (MathOperationType, error) {
 	firstToken := p.currentToken.TokenID
 	err := p.advanceToken()
 	if err != nil {
 		return Invalid, err
 	}
-	switch firstToken {
-	case PlusToken:
-		return Add, nil
-	case NegationToken:
-		return Subtract, nil
-	case AsteriskToken:
-		return Multiply, nil
-	case DivideToken:
-		return Divide, nil
-	case PowerToken:
-		return Power, nil
-	case ModulusToken:
-		return Modulus, nil
-	case NotToken, GreaterThanToken, LessThanToken, EqualsToken:
-		// Need to validate and advance past the following =
-		if p.currentToken != nil && p.currentToken.TokenID == EqualsToken {
-			// Equals is next, so return based on the token preceding the = token.
-			err := p.advanceToken()
-			if err != nil {
-				return Invalid, err
-			}
-			switch firstToken {
-			case NotToken:
-				return NotEqualTo, nil
-			case GreaterThanToken:
-				return GreaterThanEqualTo, nil
-			case LessThanToken:
-				return LessThanEqualTo, nil
-			case EqualsToken:
-				return EqualTo, nil
-			default:
-				// If you get here, there is a case missing here that is in the outer switch
-				panic(fmt.Errorf("illegal code state hit after token %s", firstToken))
-			}
-		} else {
-			// No token, or non-equals token next, so validate as a single token.
-			switch firstToken {
-			case GreaterThanToken:
-				return GreaterThan, nil
-			case LessThanToken:
-				return LessThan, nil
-			case NotToken:
-				return Not, nil
-			case EqualsToken:
-				// Expected double equals, but got single equals
-				return Invalid, &InvalidGrammarError{FoundToken: p.currentToken, ExpectedTokens: []TokenID{EqualsToken}}
-			default:
-				// If you get here, there is a case missing here that is in the outer switch
-				panic(fmt.Errorf("illegal code state hit after token %s", firstToken))
-			}
-		}
-	case AndToken:
-		if p.currentToken == nil || p.currentToken.TokenID != AndToken {
-			return Invalid, &InvalidGrammarError{FoundToken: p.currentToken, ExpectedTokens: []TokenID{AndToken}}
-		}
-		err := p.advanceToken()
-		if err != nil {
-			return Invalid, err
-		}
-		return And, nil
-	case OrToken:
-		if p.currentToken == nil || p.currentToken.TokenID != OrToken {
-			return Invalid, &InvalidGrammarError{FoundToken: p.currentToken, ExpectedTokens: []TokenID{OrToken}}
-		}
-		err := p.advanceToken()
-		if err != nil {
-			return Invalid, err
-		}
-		return Or, nil
-	default:
-		return Invalid, &InvalidGrammarError{FoundToken: p.currentToken, ExpectedTokens: []TokenID{
-			PlusToken,
-			NegationToken,
-			AsteriskToken,
-			DivideToken,
-			PowerToken,
-			NotToken,
-			GreaterThanToken,
-			LessThanToken,
-			EqualsToken,
-			AndToken,
-			OrToken,
-			ModulusToken,
-		}}
+	// Single-token operators.
+	if op, ok := singleTokenOperators[firstToken]; ok {
+		return op, nil
 	}
+	// Comparison operators that may be followed by '='.
+	if _, isCompound := compoundEqualOperators[firstToken]; isCompound {
+		return p.parseComparisonOperator(firstToken)
+	}
+	// Double-token logical operators.
+	if firstToken == AndToken || firstToken == OrToken {
+		return p.parseDoubleTokenLogical(firstToken)
+	}
+	return Invalid, &InvalidGrammarError{FoundToken: p.currentToken, ExpectedTokens: []TokenID{
+		PlusToken, NegationToken, AsteriskToken, DivideToken, PowerToken,
+		NotToken, GreaterThanToken, LessThanToken, EqualsToken,
+		AndToken, OrToken, ModulusToken,
+	}}
+}
+
+// parseComparisonOperator handles operators like !=, >=, <=, ==, or their single-token forms >, <, !.
+func (p *Parser) parseComparisonOperator(firstToken TokenID) (MathOperationType, error) {
+	if p.currentToken != nil && p.currentToken.TokenID == EqualsToken {
+		err := p.advanceToken()
+		if err != nil {
+			return Invalid, err
+		}
+		return compoundEqualOperators[firstToken], nil
+	}
+	if op, ok := singleComparisonOperators[firstToken]; ok {
+		return op, nil
+	}
+	// Single '=' without a second '=' is invalid.
+	return Invalid, &InvalidGrammarError{FoundToken: p.currentToken, ExpectedTokens: []TokenID{EqualsToken}}
+}
+
+// parseDoubleTokenLogical handles && and || by consuming the required second token.
+func (p *Parser) parseDoubleTokenLogical(token TokenID) (MathOperationType, error) {
+	if p.currentToken == nil || p.currentToken.TokenID != token {
+		return Invalid, &InvalidGrammarError{FoundToken: p.currentToken, ExpectedTokens: []TokenID{token}}
+	}
+	err := p.advanceToken()
+	if err != nil {
+		return Invalid, err
+	}
+	if token == AndToken {
+		return And, nil
+	}
+	return Or, nil
 }
 
 // parseBinaryExpression parses a binary expression that has one of the supported operators,
@@ -502,7 +489,7 @@ var identifierTokens = []TokenID{IdentifierToken, RootAccessToken}
 var validRootValueOrAccessStartTokens = append(literalTokens, identifierTokens...)
 var validValueOrAccessStartTokens = append(validRootValueOrAccessStartTokens, CurrentObjectAccessToken)
 
-// parseValueOrAccessExpression parses a root expression
+// parseValueOrAccessExpression parses a root expression.
 func (p *Parser) parseValueOrAccessExpression() (Node, error) {
 	if p.currentToken == nil || !sliceContains(validValueOrAccessStartTokens, p.currentToken.TokenID) {
 		return nil, &InvalidGrammarError{FoundToken: p.currentToken, ExpectedTokens: validValueOrAccessStartTokens}
@@ -625,7 +612,7 @@ func (p *Parser) eat(validTokens []TokenID) error {
 	return p.advanceToken()
 }
 
-// sliceContains is here to support versions of go before slices.Contains was added in Go 1.21
+// sliceContains is here to support versions of go before slices.Contains was added in Go 1.21.
 func sliceContains(slice []TokenID, value TokenID) bool {
 	for _, val := range slice {
 		if val == value {

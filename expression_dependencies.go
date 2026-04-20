@@ -128,86 +128,88 @@ func (c *dependencyContext) binaryOperationDependencies(
 	if err != nil {
 		return nil, err
 	}
-	// Right dependencies, using left type.
 	rightResult, err := c.rootDependencies(node.RightNode)
 	if err != nil {
 		return nil, err
 	}
-	var resultType schema.Type
-	// Validate operations with the resolved type, and compute the return type for the combination.
-	switch node.Operation {
-	case ast.Add:
-		// Add or concatenate
-		err = validateValidBinaryOpTypes(
-			node,
-			leftResult.resolvedType.TypeID(),
-			rightResult.resolvedType.TypeID(),
-			[]schema.TypeID{schema.TypeIDInt, schema.TypeIDFloat, schema.TypeIDString},
-		)
-		if err != nil {
-			return nil, err
-		}
-		resultType = cleanType(leftResult.resolvedType.TypeID())
-	case ast.Subtract, ast.Multiply, ast.Divide, ast.Modulus, ast.Power:
-		// Math. Same as type going in. Plus validate that it's numeric.
-		err = validateValidBinaryOpTypes(
-			node,
-			leftResult.resolvedType.TypeID(),
-			rightResult.resolvedType.TypeID(),
-			[]schema.TypeID{schema.TypeIDInt, schema.TypeIDFloat},
-		)
-		if err != nil {
-			return nil, err
-		}
-		resultType = cleanType(leftResult.resolvedType.TypeID())
-	case ast.And, ast.Or:
-		// Boolean operations. Bool in and out.
-		err = validateValidBinaryOpTypes(
-			node,
-			leftResult.resolvedType.TypeID(),
-			rightResult.resolvedType.TypeID(),
-			[]schema.TypeID{schema.TypeIDBool},
-		)
-		if err != nil {
-			return nil, err
-		}
-		resultType = schema.NewBoolSchema()
-	case ast.GreaterThan, ast.LessThan, ast.GreaterThanEqualTo, ast.LessThanEqualTo:
-		// Inequality. Int, float, or string in; bool out.
-		err = validateValidBinaryOpTypes(
-			node,
-			leftResult.resolvedType.TypeID(),
-			rightResult.resolvedType.TypeID(),
-			[]schema.TypeID{schema.TypeIDInt, schema.TypeIDString, schema.TypeIDFloat},
-		)
-		if err != nil {
-			return nil, err
-		}
-		resultType = schema.NewBoolSchema()
-	case ast.EqualTo, ast.NotEqualTo:
-		// Equality comparison. Any supported type in. Bool out.
-		err = validateValidBinaryOpTypes(
-			node,
-			leftResult.resolvedType.TypeID(),
-			rightResult.resolvedType.TypeID(),
-			[]schema.TypeID{schema.TypeIDInt, schema.TypeIDString, schema.TypeIDFloat, schema.TypeIDBool},
-		)
-		if err != nil {
-			return nil, err
-		}
-		resultType = schema.NewBoolSchema()
-	case ast.Invalid:
-		panic(fmt.Errorf("attempted to perform invalid operation (binary operation type invalid)"))
-	default:
-		panic(fmt.Errorf("bug: binary operation %s missing from dependency evaluation code", node.Operation))
+	resultType, err := resolveBinaryOperationType(node, leftResult.resolvedType, rightResult.resolvedType)
+	if err != nil {
+		return nil, err
 	}
 	// Combine the left and right dependencies.
-	finalDependencies := append(leftResult.completedPaths, rightResult.completedPaths...)
+	finalDependencies := make([]*PathTree, 0, len(leftResult.completedPaths)+len(rightResult.completedPaths))
+	finalDependencies = append(finalDependencies, leftResult.completedPaths...)
+	finalDependencies = append(finalDependencies, rightResult.completedPaths...)
 	return &dependencyResult{
 		resolvedType:   resultType,
 		rootPathResult: nil, // Cannot be chained. It's a primitive.
 		completedPaths: finalDependencies,
 	}, nil
+}
+
+// resolveBinaryOperationType validates the operand types and returns the resulting type
+// for the given binary operation.
+func resolveBinaryOperationType(
+	node *ast.BinaryOperation,
+	leftType schema.Type,
+	rightType schema.Type,
+) (schema.Type, error) {
+	switch node.Operation {
+	case ast.Add:
+		// Add or concatenate.
+		err := validateValidBinaryOpTypes(
+			node, leftType.TypeID(), rightType.TypeID(),
+			[]schema.TypeID{schema.TypeIDInt, schema.TypeIDFloat, schema.TypeIDString},
+		)
+		if err != nil {
+			return nil, err
+		}
+		return cleanType(leftType.TypeID()), nil
+	case ast.Subtract, ast.Multiply, ast.Divide, ast.Modulus, ast.Power:
+		// Math. Same as type going in. Plus validate that it's numeric.
+		err := validateValidBinaryOpTypes(
+			node, leftType.TypeID(), rightType.TypeID(),
+			[]schema.TypeID{schema.TypeIDInt, schema.TypeIDFloat},
+		)
+		if err != nil {
+			return nil, err
+		}
+		return cleanType(leftType.TypeID()), nil
+	case ast.And, ast.Or:
+		// Boolean operations. Bool in and out.
+		err := validateValidBinaryOpTypes(
+			node, leftType.TypeID(), rightType.TypeID(),
+			[]schema.TypeID{schema.TypeIDBool},
+		)
+		if err != nil {
+			return nil, err
+		}
+		return schema.NewBoolSchema(), nil
+	case ast.GreaterThan, ast.LessThan, ast.GreaterThanEqualTo, ast.LessThanEqualTo:
+		// Inequality. Int, float, or string in; bool out.
+		err := validateValidBinaryOpTypes(
+			node, leftType.TypeID(), rightType.TypeID(),
+			[]schema.TypeID{schema.TypeIDInt, schema.TypeIDString, schema.TypeIDFloat},
+		)
+		if err != nil {
+			return nil, err
+		}
+		return schema.NewBoolSchema(), nil
+	case ast.EqualTo, ast.NotEqualTo:
+		// Equality comparison. Any supported type in. Bool out.
+		err := validateValidBinaryOpTypes(
+			node, leftType.TypeID(), rightType.TypeID(),
+			[]schema.TypeID{schema.TypeIDInt, schema.TypeIDString, schema.TypeIDFloat, schema.TypeIDBool},
+		)
+		if err != nil {
+			return nil, err
+		}
+		return schema.NewBoolSchema(), nil
+	case ast.Invalid:
+		panic(fmt.Errorf("attempted to perform invalid operation (binary operation type invalid)"))
+	default:
+		panic(fmt.Errorf("bug: binary operation %s missing from dependency evaluation code", node.Operation))
+	}
 }
 
 // Returns a version of ths schema without limiting details.
@@ -323,7 +325,9 @@ func (c *dependencyContext) dotNotationDependencies(
 	if err != nil {
 		return nil, err
 	}
-	finalDependencies := append(rightResult.completedPaths, leftResult.completedPaths...)
+	finalDependencies := make([]*PathTree, 0, len(rightResult.completedPaths)+len(leftResult.completedPaths))
+	finalDependencies = append(finalDependencies, rightResult.completedPaths...)
+	finalDependencies = append(finalDependencies, leftResult.completedPaths...)
 	return &dependencyResult{
 		resolvedType:   rightResult.resolvedType,
 		chainablePath:  rightResult.chainablePath,
@@ -350,7 +354,9 @@ func (c *dependencyContext) bracketAccessorDependencies(
 	if err != nil {
 		return nil, err
 	}
-	mergedDependencies := append(leftResult.completedPaths, keyResult.completedPaths...)
+	mergedDependencies := make([]*PathTree, 0, len(leftResult.completedPaths)+len(keyResult.completedPaths))
+	mergedDependencies = append(mergedDependencies, leftResult.completedPaths...)
+	mergedDependencies = append(mergedDependencies, keyResult.completedPaths...)
 	var overallResult *dependencyResult
 	switch leftResult.resolvedType.TypeID() {
 	case schema.TypeIDMap:
@@ -385,7 +391,7 @@ func (c *dependencyContext) bracketAccessorDependencies(
 }
 
 // bracketMapDependencies is used to resolve dependencies when a bracket accessor has a subexpression,
-// with the left type being a map. So format `map[sub-expression]`
+// with the left type being a map. So format map[sub-expression].
 func (c *dependencyContext) bracketMapDependencies(
 	leftResult *dependencyResult,
 	keyType schema.Type,
@@ -446,16 +452,17 @@ func (c *dependencyContext) identifierDependencies(
 	switch node.IdentifierName {
 	case "$":
 		var root *PathTree
-		// If the given node is root, use it. If nil, create it.
-		if path == nil {
+		// Determine the root path tree based on the current path state.
+		switch {
+		case path == nil:
 			root = &PathTree{
 				PathItem: "$",
 				NodeType: DataRootNode,
 				Subtrees: nil,
 			}
-		} else if path.NodeType == DataRootNode {
+		case path.NodeType == DataRootNode:
 			root = path
-		} else {
+		default:
 			return nil, fmt.Errorf("root access %q of type %q not at root", path.PathItem, path.NodeType)
 		}
 		// The path is validated as the root already.

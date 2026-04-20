@@ -11,8 +11,8 @@ type Path []any
 type PathNodeType string
 
 const (
-	// DataRootNode is a node describing the root data path '$'
-	// The valid PathItem for this node type is '$'
+	// DataRootNode is a node describing the root data path '$'.
+	// The valid PathItem for this node type is '$'.
 	DataRootNode PathNodeType = "root"
 	// FunctionNode is a node describing a function access. It is a type of root node.
 	// The valid PathItems for this node type are function name strings.
