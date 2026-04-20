@@ -51,6 +51,8 @@ func runDependencyAccessSubtests(t *testing.T, name string, schemaType schema.Ty
 		assert.NoError(t, err)
 		paths, err := expr.Dependencies(schemaType, nil, nil, fullDataRequirements)
 		if name == anySchemaName {
+			// There isn't enough info to say this for an any type, but we set in the requirements
+			// to include past-terminal (any) data types.
 			assert.NoError(t, err)
 			assert.Equals(t, len(paths), 1)
 			assert.Equals(t, paths[0].String(), "$.foo.bar")
@@ -87,6 +89,7 @@ func runDependencySubexprSubtests(t *testing.T, name string, schemaType schema.T
 			assert.Error(t, err)
 		} else {
 			assert.NoError(t, err)
+			// Order isn't deterministic, so use contains and length validations.
 			assert.Equals(t, len(path), 2)
 			assert.SliceContainsExtractor(t, pathStrExtractor, "$.foo", path)
 			assert.SliceContainsExtractor(t, pathStrExtractor, "$.faz.foo", path)
@@ -97,6 +100,7 @@ func runDependencySubexprSubtests(t *testing.T, name string, schemaType schema.T
 		assert.NoError(t, err)
 		path, err := expr.Dependencies(schemaType, nil, nil, fullDataRequirements)
 		assert.NoError(t, err)
+		// Order isn't deterministic, so use contains and length validations.
 		assert.Equals(t, len(path), 2)
 		assert.SliceContainsExtractor(t, pathStrExtractor, "$.faz", path)
 		assert.SliceContainsExtractor(t, pathStrExtractor, "$.foo.bar", path)
@@ -129,6 +133,7 @@ func runDependencySubexprSubtests(t *testing.T, name string, schemaType schema.T
 }
 
 func TestDependencyResolution(t *testing.T) {
+	// All of these can apply to multiple types, so we'll iterate over the possibilities.
 	scopes := map[string]schema.Type{
 		"scope":       testScope,
 		anySchemaName: schema.NewAnySchema(),

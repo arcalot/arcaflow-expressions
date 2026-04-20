@@ -17,7 +17,8 @@ func TestTypeEvaluation(t *testing.T) {
 		expectedID schema.TypeID
 	}{
 		{"object", "$.foo.bar", false, schema.TypeIDString},
-		{"map-accessor", `$.faz["abc"]`, false, schema.TypeIDObject},
+		{"map-accessor", `$.faz["abc"]`, false, schema.TypeIDObject}, // The value type of the map is object.
+
 		{"map", "$.faz", false, schema.TypeIDMap},
 		{"subexpression-invalid", "$.foo[$.faz.foo]", true, ""},
 		{"subexpression", "$.faz[$.foo.bar]", false, schema.TypeIDObject},
